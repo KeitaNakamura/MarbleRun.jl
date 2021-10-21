@@ -1,0 +1,35 @@
+# strip footing (Drucker-Prager)
+
+[General]
+coordinate_system = "plane_strain" # plane_strain or axisymmetric
+domain = [[0.0, 5.0], [0.0, 5.1]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space = 0.05   # (m)
+gravity = 9.81      # (m/s2)
+total_time = 0.2    # (sec)
+show_progress = false
+
+[Output]
+interval = 0.02 # (sec)
+folder_name = "output.tmp"
+grid_in_paraview = false
+
+[[SoilLayer]]
+thickness = 5.0 # (m)
+density = 1e3 # (N/m3)
+poissons_ratio = 0.3
+youngs_modulus = 200e6 # (N/m2)
+cohesion = 10e3 # (N/m2)
+friction_angle = 30.0   # (degree)
+dilatancy_angle = 30.0 # (degree)
+tension_cutoff = false
+friction_with_rigidbody = 0.6
+
+[RigidBody]
+coordinates = [[0.0, 0.0], [0.5, 0.0], [0.5, 0.1], [0.0, 0.1]]
+velocity = 0.05 # (m/s)
+
+[Advanced]
+CFL = 1.0
+contact_threshold_scale = 1.0
+contact_penalty_parameter = 0.0
+npoints_in_cell = 2 # in each dimension
