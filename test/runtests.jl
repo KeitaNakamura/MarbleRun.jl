@@ -4,6 +4,8 @@ using Test
 using TOML
 using CSV
 
+const fix_results = false
+
 function check_results(inputtoml::String)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
@@ -11,15 +13,20 @@ function check_results(inputtoml::String)
         PenetrateIntoGround.main(inputtoml); println()
         output_dir = TOML.parsefile(inputtoml)["Output"]["folder_name"]
 
-        # check results
-        output = CSV.File(joinpath(dirname(inputtoml), "output", "$testname.csv")) # expected output
-        history = CSV.File(joinpath(dirname(inputtoml), output_dir, "history.csv"))
-        for name in propertynames(output)
-            output_col = output[name]
-            history_col = history[name]
-            for i in 1:length(output_col)
-                val = output_col[i]
-                @test 0.98*val ≤ history_col[i] ≤ 1.02*val # ±2%
+        if fix_results
+            mv(joinpath(dirname(inputtoml), output_dir, "history.csv"),
+               joinpath(dirname(inputtoml), "output", "$testname.csv"); force = true)
+        else
+            # check results
+            output = CSV.File(joinpath(dirname(inputtoml), "output", "$testname.csv")) # expected output
+            history = CSV.File(joinpath(dirname(inputtoml), output_dir, "history.csv"))
+            for name in propertynames(output)
+                output_col = output[name]
+                history_col = history[name]
+                for i in 1:length(output_col)
+                    val = output_col[i]
+                    @test 0.98*val ≤ history_col[i] ≤ 1.02*val # ±2%
+                end
             end
         end
     end
