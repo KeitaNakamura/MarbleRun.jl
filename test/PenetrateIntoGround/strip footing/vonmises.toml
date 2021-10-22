@@ -16,7 +16,7 @@ grid_in_paraview = false
 
 [[SoilLayer]]
 thickness = 5.0 # (m)
-density = 1e3 # (N/m3)
+density = 1e3 # (kg/m3)
 poissons_ratio = 0.3
 youngs_modulus = 200e6 # (N/m2)
 cohesion = 10e3 # (N/m2)
