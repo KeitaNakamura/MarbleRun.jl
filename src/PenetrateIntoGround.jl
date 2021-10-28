@@ -186,7 +186,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
         PoingrSimulator.P2G!(grid, pointstate, cache, dt)
         PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, v_rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
         for bd in eachboundary(grid)
-            @. grid.state.v[bd.indices] = boundary_velocity(grid.state.v[bd.indices], bd.n)
+            @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n)
         end
         PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, dt)
 
