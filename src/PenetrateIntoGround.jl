@@ -31,7 +31,7 @@ struct PointState
     ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
     ∇v::SecondOrderTensor{3, Float64, 9}
     C::Mat{2, 3, Float64, 6}
-    side_length::Vec{2, Float64}
+    r::Vec{2, Float64}
     μ::Vector{Float64}
     index::Int
     matindex::Int
@@ -178,11 +178,11 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
         dt = minimum(pointstate) do p
             ρ = p.m / p.V
             elastic = matmodels[p.matindex].elastic
-            vc = soundspeed(elastic.K, elastic.G, ρ)
+            vc = matcalc(Val(:sound_speed), elastic.K, elastic.G, ρ)
             INPUT.Advanced.CFL * dx / vc
         end
 
-        update!(cache, grid, pointstate.x)
+        update!(cache, grid, pointstate)
         PoingrSimulator.P2G!(grid, pointstate, cache, dt)
         PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, v_rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
         for bd in eachboundary(grid)

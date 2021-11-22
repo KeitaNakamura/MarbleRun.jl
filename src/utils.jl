@@ -34,15 +34,15 @@ end
 
 function compute_σ_dϵ(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, dt::Real)
     dϵ = symmetric(∇v) * dt
-    σ = update_stress(model, σ_n, dϵ)
-    σ = Poingr.jaumann_stress(σ, σ_n, ∇v, dt)
+    σ = matcalc(Val(:stress), model, σ_n, dϵ)
+    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
     σ, dϵ
 end
 
 function compute_σ_dϵ(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, dt::Real)
     dϵ = symmetric(∇v) * dt
-    σ = update_stress(model, σ_n, dϵ)
-    σ = Poingr.jaumann_stress(σ, σ_n, ∇v, dt)
+    σ = matcalc(Val(:stress), model, σ_n, dϵ)
+    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
     if mean(σ) > model.tension_cutoff
         # In this case, since the soil particles are not contacted with
         # each other, soils should not act as continuum.
@@ -53,7 +53,7 @@ function compute_σ_dϵ(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, 
         # function, and ignore the plastic strain to prevent excessive generation.
         # If we include this plastic strain, the volume of the material points
         # will continue to increase unexpectedly.
-        σ_tr = update_stress(model.elastic, σ_n, dϵ)
+        σ_tr = matcalc(Val(:stress), model.elastic, σ_n, dϵ)
         σ = Poingr.tension_cutoff(model, σ_tr)
         dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
     end
@@ -66,7 +66,7 @@ function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
 end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::Polygon, v_rigidbody::Vec, α::Real, ξ::Real)
-    mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.side_length) / 2) !== nothing
+    mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
     point_to_grid!((grid.state.fc_nor, grid.state.vᵣ, grid.state.μ, grid.state.w_rigidbody), cache, mask) do it, p, i
         @_inline_meta
         @_propagate_inbounds_meta
@@ -74,7 +74,7 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         w = it.w
         xₚ = pointstate.x[p]
         vₚ = pointstate.v[p]
-        d₀ = α * mean(pointstate.side_length[p]) / 2 # threshold
+        d₀ = α * mean(pointstate.r[p]) # threshold
         if length(pointstate.μ[p]) == 1
             μ = only(pointstate.μ[p])
             d = distance(rigidbody, xₚ, d₀)
