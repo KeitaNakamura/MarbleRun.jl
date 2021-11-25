@@ -37,24 +37,18 @@ struct PointState
     matindex::Int
 end
 
-function julia_main()::Cint
-    if isempty(ARGS)
-        inputtoml = "input.toml"
-    else
-        inputtoml = ARGS[1]
-    end
-    try
-        main(inputtoml)
-    catch
-        Base.invokelatest(Base.display_error, Base.catch_stack())
-        return 1
-    end
-    return 0
-end
-
 function main(inputtoml::AbstractString)
-    main(splitdir(inputtoml)[1],
-         PoingrSimulator.parseinput(inputtoml))
+    proj_dir = splitdir(inputtoml)[1]
+    INPUT = PoingrSimulator.parseinput(inputtoml)
+
+    # create output directory
+    output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
+    mkpath(output_dir)
+
+    # copy input toml file
+    cp(inputtoml, joinpath(output_dir, "input.toml"); force = true)
+
+    main(proj_dir, INPUT)
 end
 
 function main(proj_dir::AbstractString, INPUT::NamedTuple)
@@ -158,10 +152,12 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
 
     outputs = Dict{String, Any}()
     output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
-    mkpath(output_dir)
     outputs["output directory"] = output_dir
+    ## serialize
+    mkpath(joinpath(output_dir, "serialize"))
     ## paraview
-    outputs["paraview file"] = joinpath(output_dir, "out")
+    mkpath(joinpath(output_dir, "paraview"))
+    outputs["paraview file"] = joinpath(output_dir, "paraview", "output")
     paraview_collection(vtk_save, outputs["paraview file"])
     ## history
     outputs["history file"] = joinpath(output_dir, "history.csv")
@@ -232,7 +228,7 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
         writedlm(io, [disp force], ',')
     end
 
-    serialize(joinpath(output_dir, string("save", logindex(logger))),
+    serialize(joinpath(output_dir, "serialize", string("save", logindex(logger))),
               (; pointstate, grid, rigidbody))
 end
 

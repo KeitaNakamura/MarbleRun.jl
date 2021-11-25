@@ -36,7 +36,7 @@ end
     for (root, dirs, files) in walkdir("PenetrateIntoGround")
         for file in files
             path = joinpath(root, file)
-            endswith(path, ".toml") && check_results(path)
+            basename(dirname(path)) != "output.tmp" && endswith(path, ".toml") && check_results(path)
         end
     end
 end
