@@ -12,7 +12,7 @@ const fix_results = false
 function check_results(inputtoml::String)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
-    @testset "$testname" begin
+    @testset "$(joinpath(basename(dirname(inputtoml)), basename(inputtoml)))" begin
         injection_file = joinpath(dirname(inputtoml), "injection.jl")
         if isfile(injection_file)
             PoingrSimulator.main(inputtoml, include(injection_file))
