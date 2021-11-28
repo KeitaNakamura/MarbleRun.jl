@@ -186,35 +186,41 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
     paraview_file = outputs["paraview file"]
     history_file = outputs["history file"]
 
-    paraview_collection(paraview_file, append = true) do pvd
-        vtk_multiblock(string(paraview_file, logindex(logger))) do vtm
-            vtk_points(vtm, pointstate.x) do vtk
-                PoingrSimulator.write_vtk_points(vtk, pointstate)
-            end
-            vtk_grid(vtm, rigidbody)
-            if INPUT.Output.grid_in_paraview
-                vtk_grid(vtm, grid) do vtk
-                    vtk["nodal force"] = vec(grid.state.f)
-                    vtk["nodal contact force"] = vec(grid.state.fc)
-                    vtk["nodal contact force (normal)"] = vec(grid.state.fc_nor)
-                    vtk["nodal friction"] = vec(grid.state.μ)
+    if INPUT.Output.paraview
+        paraview_collection(paraview_file, append = true) do pvd
+            vtk_multiblock(string(paraview_file, logindex(logger))) do vtm
+                vtk_points(vtm, pointstate.x) do vtk
+                    PoingrSimulator.write_vtk_points(vtk, pointstate)
                 end
+                vtk_grid(vtm, rigidbody)
+                if INPUT.Output.paraview_grid
+                    vtk_grid(vtm, grid) do vtk
+                        vtk["nodal force"] = vec(grid.state.f)
+                        vtk["nodal contact force"] = vec(grid.state.fc)
+                        vtk["nodal contact force (normal)"] = vec(grid.state.fc_nor)
+                        vtk["nodal friction"] = vec(grid.state.μ)
+                    end
+                end
+                pvd[t] = vtm
             end
-            pvd[t] = vtm
         end
     end
 
-    open(history_file, "a") do io
-        disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
-        force = -sum(grid.state.fc)[2]
-        if INPUT.General.coordinate_system == "axisymmetric"
-            force *= 2π
+    if INPUT.Output.history
+        open(history_file, "a") do io
+            disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
+            force = -sum(grid.state.fc)[2]
+            if INPUT.General.coordinate_system == "axisymmetric"
+                force *= 2π
+            end
+            writedlm(io, [disp force], ',')
         end
-        writedlm(io, [disp force], ',')
     end
 
-    serialize(joinpath(output_dir, "serialize", string("save", logindex(logger))),
-              (; pointstate, grid, rigidbody))
+    if INPUT.Output.serialize
+        serialize(joinpath(output_dir, "serialize", string("save", logindex(logger))),
+                  (; pointstate, grid, rigidbody))
+    end
 end
 
 function boundary_velocity(v::Vec, n::Vec)

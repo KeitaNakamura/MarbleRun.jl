@@ -12,7 +12,10 @@ show_progress = false
 [Output]
 interval = 0.09 # (sec)
 folder_name = "output.tmp"
-grid_in_paraview = false
+history = true
+serialize = true
+paraview = true
+paraview_grid = true
 
 [[SoilLayer]]
 thickness = 15.0 # (m)
