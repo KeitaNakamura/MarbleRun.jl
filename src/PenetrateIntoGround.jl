@@ -6,7 +6,6 @@ using GeometricObjects
 
 using DelimitedFiles
 using Serialization
-using TOML
 using Dates
 
 struct NodeState
@@ -35,20 +34,6 @@ struct PointState
     μ::Vector{Float64}
     index::Int
     matindex::Int
-end
-
-function main(inputtoml::AbstractString)
-    proj_dir = splitdir(inputtoml)[1]
-    INPUT = PoingrSimulator.parseinput(inputtoml)
-
-    # create output directory
-    output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
-    mkpath(output_dir)
-
-    # copy input toml file
-    cp(inputtoml, joinpath(output_dir, "input.toml"); force = true)
-
-    main(proj_dir, INPUT)
 end
 
 function main(proj_dir::AbstractString, INPUT::NamedTuple)

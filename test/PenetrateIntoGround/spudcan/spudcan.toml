@@ -1,6 +1,7 @@
 # spudcan
 
 [General]
+simulation = "PenetrateIntoGround"
 coordinate_system = "axisymmetric" # plane_strain or axisymmetric
 domain = [[0.0, 10.0], [0.0, 15.1]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.5   # (m)

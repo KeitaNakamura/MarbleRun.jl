@@ -10,7 +10,7 @@ function check_results(inputtoml::String)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
     @testset "$testname" begin
-        PenetrateIntoGround.main(inputtoml); println()
+        PoingrSimulator.main(inputtoml); println()
         output_dir = TOML.parsefile(inputtoml)["Output"]["folder_name"]
 
         if fix_results

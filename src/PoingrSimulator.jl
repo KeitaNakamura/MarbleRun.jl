@@ -6,7 +6,20 @@ using TOML
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
-export PenetrateIntoGround
+function main(inputtoml::AbstractString)
+    proj_dir = splitdir(inputtoml)[1]
+    INPUT = parseinput(inputtoml)
+
+    # create output directory
+    output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
+    mkpath(output_dir)
+
+    # copy input toml file
+    cp(inputtoml, joinpath(output_dir, "input.toml"); force = true)
+
+    simulation = Symbol(INPUT.General.simulation)
+    @eval $simulation.main($proj_dir, $INPUT)
+end
 
 include("utils.jl")
 include("PenetrateIntoGround.jl")
