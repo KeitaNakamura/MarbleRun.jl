@@ -13,20 +13,13 @@ function parseinput(dict::Dict)
     (; list...)
 end
 
-function compute_contact_force(f_nor::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T) where {dim, T}
-    iszero(f_nor) && return zero(Vec{dim, T})
-    n = f_nor / norm(f_nor)
+function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T, ξ::T) where {dim, T}
+    iszero(d) && return zero(Vec{dim, T})
+    n = normalize(d)
     vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
+    f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
-    Contact(:friction, μ, sep = true)(f_nor + f_tan, n)
-end
-
-# don't need to check if `d` is `nothing`?
-function compute_contact_force_normal(d::Vec{dim, T}, d₀::T, m::T, dt::T, ξ::T) where {dim, T}
-    norm_d = norm(d)
-    n = d / norm_d
-    k_nor = (1-ξ) * 2m/dt^2
-    -k_nor * (norm_d - d₀) * n
+    Contact(:friction, μ; sep = true)(f_nor + f_tan, n)
 end
 
 function compute_σ_dϵ(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, dt::Real)
@@ -64,7 +57,7 @@ end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::Polygon, v_rigidbody::Vec, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
-    point_to_grid!((grid.state.fc_nor, grid.state.vᵣ, grid.state.μ, grid.state.w_rigidbody), cache, mask) do it, p, i
+    point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.w_rigidbody), cache, mask) do it, p, i
         @_inline_meta
         @_propagate_inbounds_meta
         N = it.N
@@ -74,18 +67,19 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         d₀ = α * mean(pointstate.r[p]) # threshold
         if length(pointstate.μ[p]) == 1
             μ = only(pointstate.μ[p])
-            d = distance(rigidbody, xₚ, d₀)
+            dₚ = distance(rigidbody, xₚ, d₀)
         else
             # friction is interpolated
-            d, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p])
+            dₚ, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p])
         end
-        fc_nor = compute_contact_force_normal(d, d₀, pointstate.m[p], dt, ξ)
+        d = d₀*normalize(dₚ) - dₚ
         vᵣ = vₚ - v_rigidbody
-        N*fc_nor, w*vᵣ, w*μ, w
+        w*d, w*vᵣ, w*μ, w
     end
+    @dot_threads grid.state.d /= grid.state.w
     @dot_threads grid.state.vᵣ /= grid.state.w_rigidbody
     @dot_threads grid.state.μ /= grid.state.w_rigidbody
-    @dot_threads grid.state.fc = compute_contact_force(grid.state.fc_nor, grid.state.vᵣ, grid.state.m, dt, grid.state.μ)
+    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m, dt, grid.state.μ, ξ)
     @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
 end
 
