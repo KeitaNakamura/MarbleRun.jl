@@ -171,9 +171,9 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
     t = 0.0
     logger = Logger(0.0:INPUT.Output.interval:total_time; progress = INPUT.General.show_progress)
     while !isfinised(logger, t)
-        dt = minimum(pointstate) do p
-            ρ = p.m / p.V
-            elastic = matmodels[p.matindex].elastic
+        dt = minimum(eachindex(pointstate)) do p
+            ρ = pointstate.m[p] / pointstate.V[p]
+            elastic = matmodels[pointstate.matindex[p]].elastic
             vc = matcalc(Val(:sound_speed), elastic.K, elastic.G, ρ)
             INPUT.Advanced.CFL * dx / vc
         end
