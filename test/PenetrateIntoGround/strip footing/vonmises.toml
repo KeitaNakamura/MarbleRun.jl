@@ -13,11 +13,12 @@ show_progress = false
 [Output]
 interval = 0.004 # (sec)
 folder_name = "output.tmp"
-history = true
+history = false
 serialize = true
 paraview = true
 paraview_grid = true
 copy_inputfile = true
+custom_output = "custom_output.jl" # output history
 
 [[SoilLayer]]
 thickness = 5.0 # (m)

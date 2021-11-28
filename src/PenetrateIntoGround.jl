@@ -136,18 +136,22 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
     ################
 
     outputs = Dict{String, Any}()
+    # output directory
     output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
     outputs["output directory"] = output_dir
-    ## serialize
-    mkpath(joinpath(output_dir, "serialize"))
-    ## paraview
-    mkpath(joinpath(output_dir, "paraview"))
-    outputs["paraview file"] = joinpath(output_dir, "paraview", "output")
-    paraview_collection(vtk_save, outputs["paraview file"])
-    ## history
-    outputs["history file"] = joinpath(output_dir, "history.csv")
-    open(outputs["history file"], "w") do io
-        writedlm(io, ["disp" "force"], ',')
+    if INPUT.Output.serialize
+        mkpath(joinpath(output_dir, "serialize"))
+    end
+    if INPUT.Output.paraview
+        mkpath(joinpath(output_dir, "paraview"))
+        outputs["paraview file"] = joinpath(output_dir, "paraview", "output")
+        paraview_collection(vtk_save, outputs["paraview file"])
+    end
+    if INPUT.Output.history
+        outputs["history file"] = joinpath(output_dir, "history.csv")
+        open(outputs["history file"], "w") do io
+            writedlm(io, ["disp" "force"], ',')
+        end
     end
 
     println("Start: ", now())
@@ -155,6 +159,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
 
     t = 0.0
     logger = Logger(0.0:INPUT.Output.interval:total_time; progress = INPUT.General.show_progress)
+    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
     while !isfinised(logger, t)
         dt = minimum(eachindex(pointstate)) do p
             ρ = pointstate.m[p] / pointstate.V[p]
@@ -176,19 +181,16 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
 
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, rigidbody, logger, rigidbody_center_0, t, INPUT)
+            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
         end
     end
 end
 
-function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::AbstractVector, rigidbody::Polygon, logger, rigidbody_center_0::Vec, t::Real, INPUT::NamedTuple)
-    output_dir = outputs["output directory"]
-    paraview_file = outputs["paraview file"]
-    history_file = outputs["history file"]
-
+function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::AbstractVector, rigidbody::Polygon, output_index::Int, rigidbody_center_0::Vec, t::Real, INPUT::NamedTuple)
     if INPUT.Output.paraview
+        paraview_file = outputs["paraview file"]
         paraview_collection(paraview_file, append = true) do pvd
-            vtk_multiblock(string(paraview_file, logindex(logger))) do vtm
+            vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x) do vtk
                     PoingrSimulator.write_vtk_points(vtk, pointstate)
                 end
@@ -207,6 +209,7 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
     end
 
     if INPUT.Output.history
+        history_file = outputs["history file"]
         open(history_file, "a") do io
             disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
             force = -sum(grid.state.fc)[2]
@@ -218,8 +221,21 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
     end
 
     if INPUT.Output.serialize
-        serialize(joinpath(output_dir, "serialize", string("save", logindex(logger))),
+        serialize(joinpath(outputs["output directory"], "serialize", string("save", output_index)),
                   (; pointstate, grid, rigidbody))
+    end
+
+    if haskey(INPUT, :CustomOutput)
+        args = (;
+            grid,
+            pointstate,
+            rigidbody,
+            INPUT,
+            t,
+            output_index,
+            output_dir = outputs["output directory"],
+        )
+        INPUT.CustomOutput.main(args)
     end
 end
 

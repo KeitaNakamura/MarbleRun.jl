@@ -12,9 +12,6 @@ function parseinput(dict::Dict)
     end
     (; list...)
 end
-function parseinput(inputtoml::AbstractString)
-    parseinput(TOML.parsefile(inputtoml))
-end
 
 function compute_contact_force(f_nor::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T) where {dim, T}
     iszero(f_nor) && return zero(Vec{dim, T})
