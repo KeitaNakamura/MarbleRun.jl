@@ -17,6 +17,7 @@ history = true
 serialize = true
 paraview = true
 paraview_grid = true
+copy_inputfile = true
 
 [[SoilLayer]]
 thickness = 5.0 # (m)

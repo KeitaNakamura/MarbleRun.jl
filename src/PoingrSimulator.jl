@@ -15,7 +15,9 @@ function main(inputtoml::AbstractString)
     mkpath(output_dir)
 
     # copy input toml file
-    cp(inputtoml, joinpath(output_dir, "input.toml"); force = true)
+    if INPUT.Output.copy_inputfile
+        cp(inputtoml, joinpath(output_dir, "input.toml"); force = true)
+    end
 
     simulation = Symbol(INPUT.General.simulation)
     @eval $simulation.main($proj_dir, $INPUT)
