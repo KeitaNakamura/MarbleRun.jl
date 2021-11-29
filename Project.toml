@@ -10,10 +10,8 @@ GeometricObjects = "f167b195-1c3d-409a-8dd6-02cc02a656c6"
 Poingr = "573615e8-489b-4e48-952b-fc194aa7573b"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-Tensorial = "98f94333-fa9f-48a9-ad80-1c66397b2b38"
 
 [compat]
 GeometricObjects = "0.3"
 Poingr = "0.15"
-Tensorial = "0.10, 0.11"
 julia = "1.6"
