@@ -6,13 +6,13 @@ using TOML
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
-function main(inputtoml_file::AbstractString)
+function main(inputtoml_file::AbstractString, Injection::Module = Module())
     proj_dir = splitdir(inputtoml_file)[1]
     inputtoml = read(inputtoml_file, String)
-    main(proj_dir, inputtoml)
+    main(proj_dir, inputtoml, Injection)
 end
 
-function main(proj_dir::AbstractString, inputtoml::AbstractString)
+function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
     INPUT = parseinput(TOML.parse(inputtoml))
 
     # create output directory
@@ -24,16 +24,8 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString)
         write(joinpath(output_dir, "input.toml"), inputtoml)
     end
 
-    # custom output
-    custom_output_file = joinpath(proj_dir, INPUT.Output.custom_output)
-    if isfile(custom_output_file)
-        CustomOutput = include(custom_output_file)
-        @assert CustomOutput isa Module && isdefined(CustomOutput, :main)
-        INPUT = (; CustomOutput, INPUT...)
-    end
-
     simulation = Symbol(INPUT.General.simulation)
-    @eval $simulation.main($proj_dir, $INPUT)
+    @eval $simulation.main($proj_dir, $INPUT, $Injection)
 end
 
 include("utils.jl")

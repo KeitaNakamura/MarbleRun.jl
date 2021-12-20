@@ -18,7 +18,6 @@ serialize = true
 paraview = true
 paraview_grid = true
 copy_inputfile = true
-custom_output = "custom_output.jl" # output history
 
 [[SoilLayer]]
 thickness = 5.0 # (m)

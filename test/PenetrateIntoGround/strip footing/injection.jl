@@ -1,11 +1,11 @@
-module CustomOutput
+module Injection
 
 using PoingrSimulator.GeometricObjects
 using DelimitedFiles
 
 const rigidbody_center_0 = Ref(Vec(NaN, NaN))
 
-function main(args)
+function main_output(args)
     history_file = joinpath(args.output_dir, "history.csv")
 
     grid = args.grid

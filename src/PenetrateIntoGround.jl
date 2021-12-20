@@ -36,7 +36,7 @@ struct PointState
     matindex::Int
 end
 
-function main(proj_dir::AbstractString, INPUT::NamedTuple)
+function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
 
     # General
     coordinate_system = INPUT.General.coordinate_system
@@ -159,7 +159,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
 
     t = 0.0
     logger = Logger(0.0:INPUT.Output.interval:total_time; progress = INPUT.General.show_progress)
-    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
+    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
         dt = minimum(eachindex(pointstate)) do p
             ρ = pointstate.m[p] / pointstate.V[p]
@@ -181,12 +181,22 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple)
 
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
+            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
         end
     end
 end
 
-function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::AbstractVector, rigidbody::Polygon, output_index::Int, rigidbody_center_0::Vec, t::Real, INPUT::NamedTuple)
+function writeoutput(
+        outputs::Dict{String, Any},
+        grid::Grid,
+        pointstate::AbstractVector,
+        rigidbody::Polygon,
+        output_index::Int,
+        rigidbody_center_0::Vec,
+        t::Real,
+        INPUT::NamedTuple,
+        Injection::Module,
+    )
     if INPUT.Output.paraview
         paraview_file = outputs["paraview file"]
         paraview_collection(paraview_file, append = true) do pvd
@@ -225,7 +235,7 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
                   (; pointstate, grid, rigidbody))
     end
 
-    if haskey(INPUT, :CustomOutput)
+    if isdefined(Injection, :main_output)
         args = (;
             grid,
             pointstate,
@@ -235,7 +245,7 @@ function writeoutput(outputs::Dict{String, Any}, grid::Grid, pointstate::Abstrac
             output_index,
             output_dir = outputs["output directory"],
         )
-        INPUT.CustomOutput.main(args)
+        Injection.main_output(args)
     end
 end
 

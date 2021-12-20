@@ -4,13 +4,22 @@ using Test
 using TOML
 using CSV
 
+# used in injection.jl
+using DelimitedFiles
+
 const fix_results = false
 
 function check_results(inputtoml::String)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
     @testset "$testname" begin
-        PoingrSimulator.main(inputtoml); println()
+        injection_file = joinpath(dirname(inputtoml), "injection.jl")
+        if isfile(injection_file)
+            PoingrSimulator.main(inputtoml, include(injection_file))
+        else
+            PoingrSimulator.main(inputtoml)
+        end
+        println()
         output_dir = TOML.parsefile(inputtoml)["Output"]["folder_name"]
 
         if fix_results
