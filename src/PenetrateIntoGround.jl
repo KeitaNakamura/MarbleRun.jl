@@ -159,6 +159,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
 
     t = 0.0
     logger = Logger(0.0:INPUT.Output.interval:total_time; progress = INPUT.General.show_progress)
+    update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
         dt = minimum(eachindex(pointstate)) do p
