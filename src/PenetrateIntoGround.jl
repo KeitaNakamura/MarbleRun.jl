@@ -233,7 +233,7 @@ function writeoutput(
 
     if INPUT.Output.serialize
         serialize(joinpath(outputs["output directory"], "serialize", string("save", output_index)),
-                  (; pointstate, grid, rigidbody))
+                  (; pointstate, grid, rigidbody, t))
     end
 
     if isdefined(Injection, :main_output)
