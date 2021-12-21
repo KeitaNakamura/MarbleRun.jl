@@ -33,8 +33,7 @@ function check_results(inputtoml::String)
                 output_col = output[name]
                 history_col = history[name]
                 for i in 1:length(output_col)
-                    val = output_col[i]
-                    @test 0.98*val ≤ history_col[i] ≤ 1.02*val # ±2%
+                    @test abs(output_col[i] - history_col[i]) < 10*sqrt(eps(Float64))
                 end
             end
         end

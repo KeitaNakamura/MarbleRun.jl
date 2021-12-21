@@ -57,13 +57,14 @@ end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::Polygon, v_rigidbody::Vec, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
-    point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.w_rigidbody), cache, mask) do it, p, i
+    point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
         @_inline_meta
         @_propagate_inbounds_meta
         N = it.N
-        w = it.w
+        mₚ = pointstate.m[p]
         xₚ = pointstate.x[p]
         vₚ = pointstate.v[p]
+        m = N * mₚ
         d₀ = α * mean(pointstate.r[p]) # threshold
         if length(pointstate.μ[p]) == 1
             μ = only(pointstate.μ[p])
@@ -74,11 +75,11 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         end
         d = d₀*normalize(dₚ) - dₚ
         vᵣ = vₚ - v_rigidbody
-        w*d, w*vᵣ, w*μ, w
+        m*d, m*vᵣ, m*μ, m
     end
-    @dot_threads grid.state.d /= grid.state.w
-    @dot_threads grid.state.vᵣ /= grid.state.w_rigidbody
-    @dot_threads grid.state.μ /= grid.state.w_rigidbody
+    @dot_threads grid.state.d /= grid.state.m
+    @dot_threads grid.state.vᵣ /= grid.state.m_contacted
+    @dot_threads grid.state.μ /= grid.state.m_contacted
     @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m, dt, grid.state.μ, ξ)
     @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
 end

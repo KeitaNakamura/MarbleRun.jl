@@ -12,11 +12,10 @@ struct NodeState
     f::Vec{2, Float64}
     fc::Vec{2, Float64}
     d::Vec{2, Float64}
-    w::Float64
     m::Float64
     v::Vec{2, Float64}
     vᵣ::Vec{2, Float64}
-    w_rigidbody::Float64
+    m_contacted::Float64
     μ::Float64
 end
 
@@ -158,7 +157,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     println("Particles: ", length(pointstate))
 
     t = 0.0
-    logger = Logger(0.0:INPUT.Output.interval:total_time; progress = INPUT.General.show_progress)
+    logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
