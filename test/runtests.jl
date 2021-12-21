@@ -32,9 +32,7 @@ function check_results(inputtoml::String)
             for name in propertynames(output)
                 output_col = output[name]
                 history_col = history[name]
-                for i in 1:length(output_col)
-                    @test abs(output_col[i] - history_col[i]) < 10*sqrt(eps(Float64))
-                end
+                @test output_col ≈ history_col  rtol = 1e-3
             end
         end
     end
