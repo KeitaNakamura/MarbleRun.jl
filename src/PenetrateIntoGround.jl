@@ -6,7 +6,6 @@ using GeometricObjects
 
 using DelimitedFiles
 using Serialization
-using Dates
 
 struct NodeState
     f::Vec{2, Float64}
@@ -153,7 +152,6 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
         end
     end
 
-    println("Start: ", now())
     println("Particles: ", length(pointstate))
 
     t = 0.0
