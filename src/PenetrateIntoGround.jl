@@ -159,7 +159,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = minimum(eachindex(pointstate)) do p
+        dt = Poingr.tmapreduce(min, eachindex(pointstate)) do p
             ρ = pointstate.m[p] / pointstate.V[p]
             elastic = matmodels[pointstate.matindex[p]].elastic
             vc = matcalc(Val(:sound_speed), elastic.K, elastic.G, ρ)
