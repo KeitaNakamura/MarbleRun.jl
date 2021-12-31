@@ -159,8 +159,10 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
         dt = minimum(eachindex(pointstate)) do p
-            ρ = pointstate.m[p] / pointstate.V[p]
-            elastic = matmodels[pointstate.matindex[p]].elastic
+            @inbounds begin
+                ρ = pointstate.m[p] / pointstate.V[p]
+                elastic = matmodels[pointstate.matindex[p]].elastic
+            end
             vc = matcalc(Val(:sound_speed), elastic.K, elastic.G, ρ)
             INPUT.Advanced.CFL * dx / vc
         end
