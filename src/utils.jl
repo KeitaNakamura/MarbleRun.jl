@@ -1,5 +1,10 @@
+function maybe_eval_expr(x::String)
+    startswith(x, "<Expr>") ? eval(Meta.parse(x[7:end])) : x
+end
+maybe_eval_expr(x) = x
+
 function parseinput(dict::Dict)
-    dict2namedtuple(x::Dict) = (; (Symbol(key) => value for (key, value) in x)...)
+    dict2namedtuple(x::Dict) = (; (Symbol(key) => maybe_eval_expr(value) for (key, value) in x)...)
     list = map(collect(keys(dict))) do section
         content = dict[section]
         if content isa Dict
@@ -51,8 +56,7 @@ function compute_σ_dϵ(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, 
 end
 
 function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
-    default_point_to_grid!(grid, pointstate, cache)
-    @dot_threads grid.state.v += (grid.state.f / grid.state.m) * dt
+    default_point_to_grid!(grid, pointstate, cache, dt)
 end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::Polygon, v_rigidbody::Vec, α::Real, ξ::Real)

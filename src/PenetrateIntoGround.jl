@@ -8,13 +8,12 @@ using DelimitedFiles
 using Serialization
 
 struct NodeState
-    f::Vec{2, Float64}
-    fc::Vec{2, Float64}
-    d::Vec{2, Float64}
     m::Float64
     v::Vec{2, Float64}
-    vᵣ::Vec{2, Float64}
     m_contacted::Float64
+    vᵣ::Vec{2, Float64}
+    fc::Vec{2, Float64}
+    d::Vec{2, Float64}
     μ::Float64
 end
 
@@ -78,7 +77,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
             tension_cutoff = layer.tension_cutoff
         end
         elastic = LinearElastic(; E, ν)
-        if coordinate_system == "plane_strain"
+        if coordinate_system isa PlaneStrain
             DruckerPrager(elastic, :plane_strain; c, ϕ, ψ, tension_cutoff)
         else
             DruckerPrager(elastic, :circumscribed; c, ϕ, ψ, tension_cutoff)
@@ -205,7 +204,6 @@ function writeoutput(
                 vtk_grid(vtm, rigidbody)
                 if INPUT.Output.paraview_grid
                     vtk_grid(vtm, grid) do vtk
-                        vtk["nodal force"] = vec(grid.state.f)
                         vtk["nodal contact force"] = vec(grid.state.fc)
                         vtk["nodal contact distance"] = vec(grid.state.d)
                         vtk["nodal friction"] = vec(grid.state.μ)
@@ -221,7 +219,7 @@ function writeoutput(
         open(history_file, "a") do io
             disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
             force = -sum(grid.state.fc)[2]
-            if INPUT.General.coordinate_system == "axisymmetric"
+            if INPUT.General.coordinate_system isa Axisymmetric
                 force *= 2π
             end
             writedlm(io, [disp force], ',')

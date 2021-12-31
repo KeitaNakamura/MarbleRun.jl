@@ -2,7 +2,7 @@
 
 [General]
 simulation = "PenetrateIntoGround"
-coordinate_system = "axisymmetric" # plane_strain or axisymmetric
+coordinate_system = "<Expr> Axisymmetric()" # PlaneStrain() or Axisymmetric()
 domain = [[0.0, 10.0], [0.0, 15.1]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.5   # (m)
 gravity = 9.81     # (m/s2)
