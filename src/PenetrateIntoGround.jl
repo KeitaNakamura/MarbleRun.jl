@@ -65,23 +65,8 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     ##################
 
     # constitutive models of layers
-    matmodels = map(soillayers) do layer
-        E = layer.youngs_modulus
-        ν = layer.poissons_ratio
-        c = layer.cohesion
-        ϕ = layer.friction_angle
-        ψ = layer.dilatancy_angle
-        if layer.tension_cutoff === false
-            tension_cutoff = Inf
-        else
-            tension_cutoff = layer.tension_cutoff
-        end
-        elastic = LinearElastic(; E, ν)
-        if coordinate_system isa PlaneStrain
-            DruckerPrager(elastic, :plane_strain; c, ϕ, ψ, tension_cutoff)
-        else
-            DruckerPrager(elastic, :circumscribed; c, ϕ, ψ, tension_cutoff)
-        end
+    matmodels = map(soillayers) do params
+        PoingrSimulator.create_materialmodel(DruckerPrager, params, coordinate_system)
     end
 
     # layer indices of points
