@@ -1,10 +1,5 @@
-function maybe_eval_expr(x::String)
-    startswith(x, "<Expr>") ? eval(Meta.parse(x[7:end])) : x
-end
-maybe_eval_expr(x) = x
-
 function parseinput(dict::Dict)
-    dict2namedtuple(x::Dict) = (; (Symbol(key) => maybe_eval_expr(value) for (key, value) in x)...)
+    dict2namedtuple(x::Dict) = (; (Symbol(key) => value for (key, value) in x)...)
     list = map(collect(keys(dict))) do section
         content = dict[section]
         if content isa Dict
