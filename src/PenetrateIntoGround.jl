@@ -48,7 +48,7 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     @assert H ≤ ymax
 
     # RigidBody
-    rigidbody = GeometricObject(Polygon(Vec{2}.(INPUT.RigidBody.coordinates)))
+    rigidbody = GeometricObject(Polygon(Vec{2}.(INPUT.RigidBody.coordinates)...))
     rigidbody.m = Inf
     rigidbody.v = Vec(0.0, -INPUT.RigidBody.velocity)
 
