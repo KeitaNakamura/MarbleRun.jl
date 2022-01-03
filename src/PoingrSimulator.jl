@@ -38,7 +38,7 @@ end
 function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
     dict = TOML.parse(inputtoml)
     preprocess_input!(dict)
-    INPUT = parseinput(dict)
+    INPUT = parse_input(dict)
 
     # create output directory
     output_dir = joinpath(proj_dir, INPUT.Output.folder_name)

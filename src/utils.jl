@@ -1,19 +1,13 @@
-dict2namedtuple(x) = x
-dict2namedtuple(x::Dict) = (; (Symbol(key) => dict2namedtuple(value) for (key, value) in x)...)
+###############
+# Parse input #
+###############
 
-function parseinput(dict::Dict)
-    list = map(collect(keys(dict))) do section
-        content = dict[section]
-        if content isa Dict
-            Symbol(section) => dict2namedtuple(content)
-        elseif content isa Vector
-            Symbol(section) => map(dict2namedtuple, content)
-        else
-            error("unreachable")
-        end
-    end
-    (; list...)
-end
+parse_input(x) = x
+parse_input(x::Vector) = map(parse_input, x)
+parse_input(x::Dict) = (; (Symbol(key) => parse_input(value) for (key, value) in x)...)
+
+parse_inputfile(path::AbstractString) = parse_input(TOML.parsefile(path))
+parse_inputstring(str::AbstractString) = parse_input(TOML.parse(str))
 
 ########################
 # create_materialmodel #

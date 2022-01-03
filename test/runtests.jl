@@ -1,10 +1,8 @@
 using PoingrSimulator
 using Test
 
-using TOML
-using CSV
-
 using LinearAlgebra # norm
+using CSV
 using ReadVTK
 using NaturalSort
 
@@ -25,7 +23,7 @@ function check_results(inputtoml::String; check_history = false)
         end
         println()
 
-        INPUT = PoingrSimulator.parseinput(TOML.parsefile(inputtoml))
+        INPUT = PoingrSimulator.parse_inputfile(inputtoml)
         proj_dir = dirname(inputtoml)
         output_dir = INPUT.Output.folder_name
 
