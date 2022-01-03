@@ -7,14 +7,24 @@ using TOML
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
 function preprocess_input!(dict::Dict)
-    # coordinate_system
-    let coordinate_system = dict["General"]["coordinate_system"]
+    if haskey(dict["General"], "coordinate_system")
+        coordinate_system = dict["General"]["coordinate_system"]
         if coordinate_system == "plane_strain"
             dict["General"]["coordinate_system"] = PlaneStrain()
         elseif coordinate_system == "axisymmetric"
             dict["General"]["coordinate_system"] = Axisymmetric()
         else
             throw(ArgumentError("wrong `coordinate_system`, got \"$coordinate_system\", use \"plane_strain\" or \"axisymmetric\""))
+        end
+    end
+    if haskey(dict, "Material")
+        for mat in dict["Material"]
+            if haskey(mat, "region")
+                mat["region"] = eval(Meta.parse(mat["region"])) # should be anonymous function
+            end
+            if haskey(mat, "type")
+                mat["type"] = eval(Meta.parse(mat["type"]))
+            end
         end
     end
 end
@@ -46,5 +56,6 @@ end
 include("utils.jl")
 include("transfer.jl")
 include("PenetrateIntoGround.jl")
+include("FreeRun.jl")
 
 end # module

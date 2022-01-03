@@ -1,5 +1,7 @@
+dict2namedtuple(x) = x
+dict2namedtuple(x::Dict) = (; (Symbol(key) => dict2namedtuple(value) for (key, value) in x)...)
+
 function parseinput(dict::Dict)
-    dict2namedtuple(x::Dict) = (; (Symbol(key) => value for (key, value) in x)...)
     list = map(collect(keys(dict))) do section
         content = dict[section]
         if content isa Dict
@@ -33,6 +35,26 @@ function create_materialmodel(::Type{DruckerPrager}, params, coordinate_system)
         DruckerPrager(elastic, :plane_strain; c, ϕ, ψ, tension_cutoff)
     else
         DruckerPrager(elastic, :circumscribed; c, ϕ, ψ, tension_cutoff)
+    end
+end
+
+######################
+# initialize_stress! #
+######################
+
+function initialize_stress!(σₚ::AbstractVector, material::NamedTuple, g)
+    Initialization = material.Initialization
+    ρ0 = material.density
+    if Initialization.type == "K0"
+        for p in eachindex(σₚ)
+            σ_y = -ρ0 * g * Initialization.reference_height
+            σ_x = Initialization.K0 * σ_y
+            σₚ[p] = (@Mat [σ_x 0.0 0.0
+                           0.0 σ_y 0.0
+                           0.0 0.0 σ_x]) |> symmetric
+        end
+    else
+        throw(ArgumentError("wrong initialization type, got $(condition.type)"))
     end
 end
 

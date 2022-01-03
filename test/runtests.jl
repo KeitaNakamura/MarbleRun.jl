@@ -82,3 +82,13 @@ end
         end
     end
 end
+
+@testset "FreeRun" begin
+    for (root, dirs, files) in walkdir("FreeRun")
+        for file in files
+            path = joinpath(root, file)
+            basename(dirname(path)) != "output.tmp" && endswith(path, ".toml") &&
+                check_results(path)
+        end
+    end
+end
