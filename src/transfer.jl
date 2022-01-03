@@ -39,7 +39,7 @@ function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
     default_point_to_grid!(grid, pointstate, cache, dt)
 end
 
-function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::Polygon, v_rigidbody::Vec, α::Real, ξ::Real)
+function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
     point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
         @_inline_meta
@@ -58,9 +58,10 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
             dₚ, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p])
         end
         d = d₀*normalize(dₚ) - dₚ
-        vᵣ = vₚ - v_rigidbody
+        vᵣ = vₚ - velocityat(rigidbody, xₚ)
         m*d, m*vᵣ, m*μ, m
     end
+    mᵢ = @dot_lazy grid.state.m / (grid.state.m/rigidbody.m + 1)
     @dot_threads grid.state.d /= grid.state.m
     @dot_threads grid.state.vᵣ /= grid.state.m_contacted
     @dot_threads grid.state.μ /= grid.state.m_contacted

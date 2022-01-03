@@ -48,8 +48,9 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
     @assert H ≤ ymax
 
     # RigidBody
-    rigidbody = Polygon(Vec{2}.(INPUT.RigidBody.coordinates))
-    v_rigidbody = Vec(0.0, -INPUT.RigidBody.velocity)
+    rigidbody = GeometricObject(Polygon(Vec{2}.(INPUT.RigidBody.coordinates)))
+    rigidbody.m = Inf
+    rigidbody.v = Vec(0.0, -INPUT.RigidBody.velocity)
 
     # Advanced
     α = INPUT.Advanced.contact_threshold_scale
@@ -154,13 +155,13 @@ function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
 
         update!(cache, grid, pointstate)
         PoingrSimulator.P2G!(grid, pointstate, cache, dt)
-        PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, v_rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
+        PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
         for bd in eachboundary(grid)
             @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n)
         end
         PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, dt)
 
-        translate!(rigidbody, v_rigidbody * dt)
+        GeometricObjects.update!(rigidbody, dt)
         update!(logger, t += dt)
 
         if islogpoint(logger)
@@ -174,7 +175,7 @@ function writeoutput(
         outputs::Dict{String, Any},
         grid::Grid,
         pointstate::AbstractVector,
-        rigidbody::Polygon,
+        rigidbody::GeometricObject,
         output_index::Int,
         rigidbody_center_0::Vec,
         t::Real,
