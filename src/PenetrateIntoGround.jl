@@ -1,6 +1,7 @@
 module PenetrateIntoGround
 
 using PoingrSimulator
+using PoingrSimulator: Input
 using Poingr
 using GeometricObjects
 
@@ -33,7 +34,7 @@ struct PointState
     matindex::Int
 end
 
-function main(proj_dir::AbstractString, INPUT::NamedTuple, Injection::Module)
+function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     # General
     coordinate_system = INPUT.General.coordinate_system
@@ -179,7 +180,7 @@ function writeoutput(
         output_index::Int,
         rigidbody_center_0::Vec,
         t::Real,
-        INPUT::NamedTuple,
+        INPUT::Input{:Root},
         Injection::Module,
     )
     if INPUT.Output.paraview

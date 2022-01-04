@@ -1,17 +1,38 @@
+struct Input{name, Tup <: NamedTuple}
+    fields::Tup
+end
+Input{name}(fields::NamedTuple) where {name} = Input{name, typeof(fields)}(fields)
+Input{name}(; kwargs...) where {name} = Input{name}((; kwargs...))
+
+Base.propertynames(input::Input) = propertynames(getfield(input, :fields))
+Base.getproperty(input::Input, name::Symbol) = getproperty(getfield(input, :fields), name)
+
+Base.length(input::Input) = length(getfield(input, :fields))
+Base.getindex(input::Input, name) = getindex(getfield(input, :fields), name)
+Base.iterate(input::Input) = iterate(getfield(input, :fields))
+Base.iterate(input::Input, state) = iterate(getfield(input, :fields), state)
+
+Base.get(input::Input, name::Symbol, default) = get(getfield(input, :fields), name, default)
+Base.haskey(input::Input, name::Symbol) = haskey(getfield(input, :fields), name)
+Base.keys(input::Input) = keys(getfield(input, :fields))
+Base.values(input::Input) = values(getfield(input, :fields))
+Base.show(io::IO, input::Input{name}) where {name} = print(io, "Input{:$name}", getfield(input, :fields))
+
+
 ##############
 # Input TOML #
 ##############
 
-_parse_input(x) = x
-_parse_input(x::Vector) = first(x) isa Dict ? map(_parse_input, x) : (x...,) # try vector => tuple except for table
-_parse_input(x::Dict) = (; (Symbol(key) => _parse_input(value) for (key, value) in x)...)
+_parse_input(name, x) = x
+_parse_input(name, x::Vector) = first(x) isa Dict ? _parse_input.(name, x) : (x...,) # try vector => tuple except for table
+_parse_input(name, x::Dict) = Input{name}(; (Symbol(key) => _parse_input(Symbol(key), value) for (key, value) in x)...)
 
 function parse_input(x::Dict)
     for section in keys(x)
         preprocess! = Symbol(:preprocess_, section, :!)
         eval(preprocess!)(x[section])
     end
-    _parse_input(x)
+    _parse_input(:Root, x)
 end
 
 parse_inputfile(path::AbstractString) = parse_input(TOML.parsefile(path))
@@ -41,7 +62,7 @@ end
 function preprocess_BoundaryCondition!(BoundaryCondition::Dict)
 end
 
-function create_boundary_contacts(BoundaryCondition)
+function create_boundary_contacts(BoundaryCondition::Input{:BoundaryCondition})
     dict = Dict{Symbol, Contact}()
     for side in (:left, :right, :bottom, :top)
         if haskey(BoundaryCondition, side)
@@ -67,6 +88,8 @@ end
 # Material #
 ############
 
+const InputMaterial = Union{Input{:Material}, Input{:SoilLayer}}
+
 function preprocess_Material!(Material::Vector)
     for mat in Material
         if haskey(mat, "region")
@@ -78,11 +101,11 @@ function preprocess_Material!(Material::Vector)
     end
 end
 
-function create_materialmodel(mat::NamedTuple, coordinate_system)
-    create_materialmodel(first(mat), Base.tail(mat), coordinate_system)
+function create_materialmodel(mat::InputMaterial, coordinate_system)
+    create_materialmodel(mat.type, mat, coordinate_system)
 end
 
-function create_materialmodel(::Type{DruckerPrager}, params, coordinate_system)
+function create_materialmodel(::Type{DruckerPrager}, params::InputMaterial, coordinate_system)
     E = params.youngs_modulus
     ν = params.poissons_ratio
     c = params.cohesion
@@ -97,7 +120,7 @@ function create_materialmodel(::Type{DruckerPrager}, params, coordinate_system)
     end
 end
 
-function create_materialmodel(::Type{NewtonianFluid}, params, coordinate_system)
+function create_materialmodel(::Type{NewtonianFluid}, params::InputMaterial, coordinate_system)
     ρ0 = params.density
     P0 = params.pressure
     c = params.sound_of_speed
@@ -107,7 +130,7 @@ end
 
 # Material.Initialization
 
-function initialize_stress!(σₚ::AbstractVector, material::NamedTuple, g)
+function initialize_stress!(σₚ::AbstractVector, material::Input{:Material}, g)
     Initialization = material.Initialization
     ρ0 = material.density
     if Initialization.type == "K0"
