@@ -3,7 +3,7 @@
 ###############
 
 parse_input(x) = x
-parse_input(x::Vector) = map(parse_input, x)
+parse_input(x::Vector) = first(x) isa Dict ? map(parse_input, x) : (x...,) # try vector => tuple except for table
 parse_input(x::Dict) = (; (Symbol(key) => parse_input(value) for (key, value) in x)...)
 
 parse_inputfile(path::AbstractString) = parse_input(TOML.parsefile(path))

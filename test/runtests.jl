@@ -21,7 +21,6 @@ function check_results(inputtoml::String; check_history = false)
         else
             PoingrSimulator.main(inputtoml)
         end
-        println()
 
         INPUT = PoingrSimulator.parse_inputfile(inputtoml)
         proj_dir = dirname(inputtoml)
