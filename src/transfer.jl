@@ -81,13 +81,14 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
 end
 
 function write_vtk_points(vtk, pointstate::AbstractVector)
+    σ = pointstate.σ
     ϵ = pointstate.ϵ
     vtk["velocity"] = pointstate.v
-    vtk["mean stress"] = @dot_lazy -mean(pointstate.σ)
-    vtk["deviatoric stress"] = @dot_lazy deviatoric_stress(pointstate.σ)
+    vtk["mean stress"] = @dot_lazy mean(σ)
+    vtk["deviatoric stress"] = @dot_lazy deviatoric_stress(σ)
     vtk["volumetric strain"] = @dot_lazy volumetric_strain(ϵ)
     vtk["deviatoric strain"] = @dot_lazy deviatoric_strain(ϵ)
-    vtk["stress"] = @dot_lazy -pointstate.σ
+    vtk["stress"] = σ
     vtk["strain"] = ϵ
     vtk["density"] = @dot_lazy pointstate.m / pointstate.V
     vtk["material index"] = pointstate.matindex
