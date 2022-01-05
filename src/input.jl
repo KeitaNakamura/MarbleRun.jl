@@ -130,8 +130,7 @@ function create_materialmodel(::Type{NewtonianFluid}, params::InputMaterial, coo
     NewtonianFluid(; ρ0, P0, c, μ)
 end
 
-# Material.Initialization
-
+# This function is basically based on Material.Initialization
 function initialize_stress!(σₚ::AbstractVector, material::Input{:Material}, g)
     Initialization = material.Initialization
     ρ0 = material.density
@@ -150,6 +149,25 @@ function initialize_stress!(σₚ::AbstractVector, material::Input{:Material}, g
     else
         throw(ArgumentError("invalid initialization type, got $(condition.type)"))
     end
+end
+
+# generate_pointstate
+function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, INPUT::Input{:Root}) where {PointState}
+    Material = INPUT.Material
+    pointstates = map(1:length(Material)) do matindex
+        material = Material[matindex]
+        pointstate′ = generate_pointstate(
+            material.region,
+            PointState,
+            grid;
+            n = getoftype(INPUT.Advanced, :npoints_in_cell, 2),
+        )
+        initialize!(pointstate′, matindex)
+        pointstate′
+    end
+    pointstate = first(pointstates)
+    append!(pointstate, pointstates[2:end]...)
+    pointstate
 end
 
 #############

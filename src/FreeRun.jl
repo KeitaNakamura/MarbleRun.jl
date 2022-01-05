@@ -1,7 +1,7 @@
 module FreeRun
 
 using PoingrSimulator
-using PoingrSimulator: Input
+using PoingrSimulator: Input, getoftype
 using Poingr
 using GeometricObjects
 
@@ -47,40 +47,28 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     materials = INPUT.Material
 
     # Advanced
-    α = get(INPUT.Advanced, :contact_threshold_scale, 1)
-    nptsincell = INPUT.Advanced.npoints_in_cell
-
-
-    grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
-    pointstate = let
-        pointstates = map(materials) do mat
-            generate_pointstate(mat.region, PointState, grid; n = nptsincell)
-        end
-        for i in eachindex(pointstates)
-            pointstates[i].matindex .= i
-        end
-        vcat(pointstates...)
-    end
-    cache = MPCache(grid, pointstate.x)
+    α = getoftype(INPUT.Advanced, :contact_threshold_scale, 1.0)
 
     ##################
     # Initialization #
     ##################
 
+    grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    pointstate = generate_pointstate(PointState, grid, INPUT) do pointstate, matindex
+        mat = materials[matindex]
+        ρ0 = mat.density
+        @. pointstate.m = ρ0 * pointstate.V
+        @. pointstate.μ = getoftype($Ref(mat), :friction_with_rigidbody, 0.0)
+        @. pointstate.b = Vec(0.0, -g)
+        @. pointstate.matindex = matindex
+        PoingrSimulator.initialize_stress!(pointstate.σ, mat, g)
+    end
+    cache = MPCache(grid, pointstate.x)
+
     # constitutive models
     matmodels = map(materials) do mat
         PoingrSimulator.create_materialmodel(mat.type, mat, coordinate_system)
     end
-
-    # initialize variables of points
-    Threads.@threads for p in 1:length(pointstate)
-        mat = materials[pointstate.matindex[p]]
-        ρ0 = mat.density
-        pointstate.m[p] = ρ0 * pointstate.V[p]
-        pointstate.μ[p] = get(mat, :friction_with_rigidbody, 0)
-        PoingrSimulator.initialize_stress!(pointstate.σ, mat, g)
-    end
-    @. pointstate.b = Vec(0.0, -g)
 
     # boundary contacts
     boundary_contacts = PoingrSimulator.create_boundary_contacts(INPUT.BoundaryCondition)
