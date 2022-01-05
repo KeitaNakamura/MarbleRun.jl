@@ -109,13 +109,8 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, logindex(logger), t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = minimum(eachindex(pointstate)) do p
-            @inbounds begin
-                ρ = pointstate.m[p] / pointstate.V[p]
-                elastic = matmodels[pointstate.matindex[p]].elastic
-            end
-            vc = matcalc(Val(:sound_speed), elastic.K, elastic.G, ρ)
-            INPUT.Advanced.CFL * dx / vc
+        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
+            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
         end
 
         update!(cache, grid, pointstate)

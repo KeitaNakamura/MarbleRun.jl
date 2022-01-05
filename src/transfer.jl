@@ -1,3 +1,10 @@
+function timestep(model::DruckerPrager, p, dx) # currently support only LinearElastic
+    ρ = p.m / p.V
+    v = norm(p.v)
+    vc = matcalc(Val(:sound_speed), model.elastic.K, model.elastic.G, ρ)
+    dx / (vc + v)
+end
+
 function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T, ξ::T) where {dim, T}
     iszero(d) && return zero(Vec{dim, T})
     n = normalize(d)
