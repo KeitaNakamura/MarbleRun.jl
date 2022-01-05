@@ -160,7 +160,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
         for bd in eachboundary(grid)
             @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n)
         end
-        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, dt)
+        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, soillayers, dt) # `soillayers` are for densities
 
         GeometricObjects.update!(rigidbody, dt)
         update!(logger, t += dt)

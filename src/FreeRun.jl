@@ -124,7 +124,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
         for bd in eachboundary(grid)
             @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
         end
-        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, dt)
+        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
 
         # translate!(rigidbody, v_rigidbody * dt)
         update!(logger, t += dt)

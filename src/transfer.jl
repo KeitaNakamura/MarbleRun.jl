@@ -7,14 +7,14 @@ function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, �
     Contact(:friction, μ; sep = true)(f_nor + f_tan, n)
 end
 
-function compute_σ_dϵ(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, dt::Real)
+function compute_σ_dϵ_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
     dϵ = symmetric(∇v) * dt
     σ = matcalc(Val(:stress), model, σ_n, dϵ)
     σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    σ, dϵ
+    σ, dϵ, J*exp(tr(dϵ))
 end
 
-function compute_σ_dϵ(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, dt::Real)
+function compute_σ_dϵ_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
     dϵ = symmetric(∇v) * dt
     σ = matcalc(Val(:stress), model, σ_n, dϵ)
     σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
@@ -32,7 +32,7 @@ function compute_σ_dϵ(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, 
         σ = Poingr.tension_cutoff(model, σ_tr)
         dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
     end
-    σ, dϵ
+    σ, dϵ, J*exp(tr(dϵ))
 end
 
 function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
@@ -69,14 +69,19 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
     @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
 end
 
-function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, dt::Real)
+function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: InputMaterial}, dt::Real)
     default_grid_to_point!(pointstate, grid, cache, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
-        model = models[pointstate.matindex[p]]
-        σ, dϵ = compute_σ_dϵ(model, pointstate.σ[p], pointstate.∇v[p], dt)
+        matindex = pointstate.matindex[p]
+        model = models[matindex]
+        params = materials[matindex]
+        ρ0 = params.density
+        V0 = pointstate.m[p] / ρ0
+        J = pointstate.V[p] / V0 # not updated jacobian
+        σ, dϵ, J = compute_σ_dϵ_J(model, pointstate.σ[p], pointstate.∇v[p], J, dt)
         pointstate.σ[p] = σ
         pointstate.ϵ[p] += dϵ
-        pointstate.V[p] *= exp(tr(dϵ))
+        pointstate.V[p] = V0 * J
     end
 end
 
