@@ -15,12 +15,7 @@ function check_results(inputtoml::String; check_history = false)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
     @testset "$(joinpath(basename(dirname(inputtoml)), basename(inputtoml)))" begin
-        injection_file = joinpath(dirname(inputtoml), "injection.jl")
-        if isfile(injection_file)
-            PoingrSimulator.main(inputtoml, include(injection_file))
-        else
-            PoingrSimulator.main(inputtoml)
-        end
+        PoingrSimulator.main(inputtoml)
 
         INPUT = PoingrSimulator.parse_inputfile(inputtoml)
         proj_dir = dirname(inputtoml)

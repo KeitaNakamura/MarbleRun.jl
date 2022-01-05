@@ -6,8 +6,14 @@ using TOML
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
-function main(inputtoml_file::AbstractString, Injection::Module = Module())
-    proj_dir = splitdir(inputtoml_file)[1]
+function main(inputtoml_file::AbstractString)
+    proj_dir = dirname(inputtoml_file)
+    injection_file = joinpath(proj_dir, "injection.jl")
+    main(inputtoml_file, isfile(injection_file) ? include(injection_file) : Module())
+end
+
+function main(inputtoml_file::AbstractString, Injection::Module)
+    proj_dir = dirname(inputtoml_file)
     inputtoml = read(inputtoml_file, String)
     main(proj_dir, inputtoml, Injection)
 end
