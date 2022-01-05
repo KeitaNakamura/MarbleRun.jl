@@ -31,8 +31,9 @@ tension_cutoff = false
 friction_with_rigidbody = 0.0
 
 [RigidBody]
+type = "Polygon"
 coordinates = [[0.0, 0.0], [0.5, 0.0], [0.5, 0.1], [0.0, 0.1]]
-velocity = 0.1 # (m/s)
+velocity = [0.0, -0.1] # (m/s)
 
 [Advanced]
 CFL = 1.0

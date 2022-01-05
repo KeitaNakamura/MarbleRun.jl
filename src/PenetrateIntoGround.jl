@@ -49,9 +49,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     @assert H ≤ ymax
 
     # RigidBody
-    rigidbody = GeometricObject(Polygon(Vec{2}.(INPUT.RigidBody.coordinates)...))
-    rigidbody.m = Inf
-    rigidbody.v = Vec(0.0, -INPUT.RigidBody.velocity)
+    rigidbody = PoingrSimulator.create_rigidbody(Input{:RigidBody}(; density = Inf, INPUT.RigidBody...))
 
     # Advanced
     α = INPUT.Advanced.contact_threshold_scale

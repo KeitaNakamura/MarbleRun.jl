@@ -16,8 +16,10 @@ Base.get(input::Input, name::Symbol, default) = get(getfield(input, :fields), na
 Base.haskey(input::Input, name::Symbol) = haskey(getfield(input, :fields), name)
 Base.keys(input::Input) = keys(getfield(input, :fields))
 Base.values(input::Input) = values(getfield(input, :fields))
+Base.merge(tup::NamedTuple, input::Input) = merge(tup, getfield(input, :fields))
 Base.show(io::IO, input::Input{name}) where {name} = print(io, "Input{:$name}", getfield(input, :fields))
 
+getoftype(input::Input, name::Symbol, default) = oftype(default, get(getfield(input, :fields), name, default))
 
 ##############
 # Input TOML #
@@ -154,10 +156,36 @@ end
 # RigidBody #
 #############
 
-function preprocess_RigidBody!(RigidBody::Dict)
+function preprocess_RigidBody!(RigidBody::Vector)
+    foreach(preprocess_RigidBody!, RigidBody)
 end
 
-function preprocess_RigidBody!(RigidBody::Vector)
+function preprocess_RigidBody!(RigidBody::Dict)
+    if haskey(RigidBody, "type")
+        RigidBody["type"] = eval(Meta.parse(RigidBody["type"]))
+    end
+    if haskey(RigidBody, "control")
+        if RigidBody["control"] === true
+            RigidBody["density"] = Inf # TODO: warning?
+        end
+    end
+end
+
+function create_rigidbody(RigidBody::Input{:RigidBody})
+    create_rigidbody(RigidBody.type, RigidBody)
+end
+
+function create_rigidbody(::Type{Polygon}, params::Input{:RigidBody})
+    rigidbody = GeometricObject(Polygon(Vec{2}.(params.coordinates)...))
+    initialize_rigidbody!(rigidbody, params)
+    rigidbody
+end
+
+function initialize_rigidbody!(rigidbody::GeometricObject{dim, T}, params::Input{:RigidBody}) where {dim, T}
+    rigidbody.m = area(rigidbody) * params.density # TODO: should use `volume`?
+    rigidbody.v = getoftype(params, :velocity, zero(Vec{dim, T}))
+    rigidbody.ω = getoftype(params, :angular_velocity, zero(Vec{3, T}))
+    rigidbody
 end
 
 ##########
