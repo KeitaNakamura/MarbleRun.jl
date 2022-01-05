@@ -1,6 +1,5 @@
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaturalSort = "c020b1a1-e9b0-503a-9c33-f039bfc54a85"
 ReadVTK = "dc215faf-f008-4882-a9f7-a79a826fadc3"

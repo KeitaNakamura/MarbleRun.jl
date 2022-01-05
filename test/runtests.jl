@@ -6,9 +6,6 @@ using CSV
 using ReadVTK
 using NaturalSort
 
-# used in injection.jl
-using DelimitedFiles
-
 const fix_results = false
 
 function check_results(inputtoml::String; check_history = false)
