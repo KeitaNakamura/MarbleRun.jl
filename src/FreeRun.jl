@@ -24,6 +24,7 @@ struct PointState
     x::Vec{2, Float64}
     v::Vec{2, Float64}
     b::Vec{2, Float64}
+    fc::Vec{2, Float64}
     σ::SymmetricSecondOrderTensor{3, Float64, 6}
     ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
     ∇v::SecondOrderTensor{3, Float64, 9}
@@ -45,6 +46,9 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     # Material
     materials = INPUT.Material
+
+    # RigidBody
+    rigidbodies = map(PoingrSimulator.create_rigidbody, get(INPUT, :RigidBody, GeometricObject[])::Vector)
 
     # Advanced
     α = getoftype(INPUT.Advanced, :contact_threshold_scale, 1.0)
@@ -95,7 +99,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     t = 0.0
     logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, grid, pointstate, logindex(logger), t, INPUT, Injection)
+    writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT, Injection)
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
@@ -103,18 +107,35 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
         update!(cache, grid, pointstate)
         PoingrSimulator.P2G!(grid, pointstate, cache, dt)
-        # PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, v_rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
+        masks = map(rigidbodies) do rigidbody
+            PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
+        end
         for bd in eachboundary(grid)
             @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
         end
         PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
+        for (rigidbody, mask) in zip(rigidbodies, masks)
+            PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+        end
 
-        # translate!(rigidbody, v_rigidbody * dt)
+        for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
+            input = INPUT.RigidBody[i]
+            b = getoftype(input, :body_force, zero(Vec{2}))
+            if getoftype(input, :control, false)
+                GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+            else
+                inds = findall(mask)
+                Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+                Fc += rigidbody.m * Vec(0,-g) + b
+                GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+            end
+        end
+
         update!(logger, t += dt)
 
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, logindex(logger), t, INPUT, Injection)
+            writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT, Injection)
         end
     end
 end
@@ -123,9 +144,8 @@ function writeoutput(
         outputs::Dict{String, Any},
         grid::Grid,
         pointstate::AbstractVector,
-        # rigidbody::Polygon,
+        rigidbodies::Vector{<: GeometricObject},
         output_index::Int,
-        # rigidbody_center_0::Vec,
         t::Real,
         INPUT::Input{:Root},
         Injection::Module,
@@ -137,7 +157,9 @@ function writeoutput(
                 vtk_points(vtm, pointstate.x) do vtk
                     PoingrSimulator.write_vtk_points(vtk, pointstate)
                 end
-                # vtk_grid(vtm, rigidbody)
+                for rigidbody in rigidbodies
+                    vtk_grid(vtm, rigidbody)
+                end
                 if INPUT.Output.paraview_grid
                     vtk_grid(vtm, grid) do vtk
                         vtk["nodal contact force"] = vec(grid.state.fc)
@@ -150,28 +172,16 @@ function writeoutput(
         end
     end
 
-    # if INPUT.Output.history
-        # history_file = outputs["history file"]
-        # open(history_file, "a") do io
-            # disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
-            # force = -sum(grid.state.fc)[2]
-            # if INPUT.General.coordinate_system isa Axisymmetric
-                # force *= 2π
-            # end
-            # writedlm(io, [disp force], ',')
-        # end
-    # end
-
     if INPUT.Output.serialize
         serialize(joinpath(outputs["output directory"], "serialize", string("save", output_index)),
-                  (; pointstate, grid, #=rigidbody,=# t))
+                  (; pointstate, grid, rigidbodies, t))
     end
 
     if isdefined(Injection, :main_output)
         args = (;
             grid,
             pointstate,
-            # rigidbody,
+            rigidbodies,
             INPUT,
             t,
             output_index,

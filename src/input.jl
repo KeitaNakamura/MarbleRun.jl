@@ -19,7 +19,7 @@ Base.values(input::Input) = values(getfield(input, :fields))
 Base.merge(tup::NamedTuple, input::Input) = merge(tup, getfield(input, :fields))
 Base.show(io::IO, input::Input{name}) where {name} = print(io, "Input{:$name}", getfield(input, :fields))
 
-getoftype(input::Input, name::Symbol, default) = oftype(default, get(getfield(input, :fields), name, default))
+getoftype(input::Input, name::Symbol, default)::typeof(default) = oftype(default, get(getfield(input, :fields), name, default))
 
 ##############
 # Input TOML #
@@ -181,7 +181,7 @@ function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, g
         findall(eachindex(pointstate)) do p
             xₚ = pointstate.x[p]
             rₚ = pointstate.r[p]
-            all(INPUT.RigidBody) do rigidbody
+            all(map(create_rigidbody, INPUT.RigidBody)) do rigidbody
                 # remove pointstate which is in rigidbody or is in contact with rigidbody
                 in(xₚ, rigidbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
             end
@@ -219,6 +219,12 @@ end
 
 function create_rigidbody(::Type{Polygon}, params::Input{:RigidBody})
     rigidbody = GeometricObject(Polygon(Vec{2}.(params.coordinates)...))
+    initialize_rigidbody!(rigidbody, params)
+    rigidbody
+end
+
+function create_rigidbody(::Type{Circle}, params::Input{:RigidBody})
+    rigidbody = GeometricObject(Circle(Vec(params.center), params.radius))
     initialize_rigidbody!(rigidbody, params)
     rigidbody
 end
