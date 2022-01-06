@@ -62,10 +62,12 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
         mat = materials[matindex]
         ρ0 = mat.density
         @. pointstate.m = ρ0 * pointstate.V
-        @. pointstate.μ = getoftype($Ref(mat), :friction_with_rigidbody, 0.0)
         @. pointstate.b = Vec(0.0, -g)
         @. pointstate.matindex = matindex
         PoingrSimulator.initialize_stress!(pointstate.σ, mat, g)
+        if !isempty(rigidbodies)
+            @. pointstate.μ = mat.friction_with_rigidbody
+        end
     end
     cache = MPCache(grid, pointstate.x)
 

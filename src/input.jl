@@ -101,7 +101,9 @@ function preprocess_Material!(Material::Vector)
             mat["type"] = eval(Meta.parse(mat["type"]))
         end
         if haskey(mat, "friction_with_rigidbody")
-            mat["friction_with_rigidbody"] = eval(Meta.parse(mat["friction_with_rigidbody"]))
+            coef = mat["friction_with_rigidbody"]
+            coef = convert(Float64, coef isa AbstractString ? eval(Meta.parse(coef)) : coef)
+            mat["friction_with_rigidbody"] = coef
         end
     end
 end
