@@ -8,7 +8,7 @@ using NaturalSort
 
 const fix_results = false
 
-function check_results(inputtoml::String; check_history = false)
+function check_results(inputtoml::String)
     @assert endswith(inputtoml, ".toml")
     testname = first(splitext(basename(inputtoml)))
     @testset "$(joinpath(basename(dirname(inputtoml)), basename(inputtoml)))" begin
@@ -44,7 +44,8 @@ function check_results(inputtoml::String; check_history = false)
             end
         end
 
-        if check_history
+        # test history.csv if exists
+        if isfile(joinpath(proj_dir, output_dir, "history.csv"))
             if fix_results
                 cp(joinpath(proj_dir, output_dir, "history.csv"),
                    joinpath(proj_dir, "output", "$testname.csv"); force = true)
@@ -62,22 +63,11 @@ function check_results(inputtoml::String; check_history = false)
     end
 end
 
-@testset "PenetrateIntoGround" begin
-    for (root, dirs, files) in walkdir("PenetrateIntoGround")
+@testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun")
+    for (root, dirs, files) in walkdir(module_name)
         for file in files
             path = joinpath(root, file)
-            basename(dirname(path)) != "output.tmp" && endswith(path, ".toml") &&
-                check_results(path; check_history = true)
-        end
-    end
-end
-
-@testset "FreeRun" begin
-    for (root, dirs, files) in walkdir("FreeRun")
-        for file in files
-            path = joinpath(root, file)
-            basename(dirname(path)) != "output.tmp" && endswith(path, ".toml") &&
-                check_results(path)
+            basename(dirname(path)) != "output.tmp" && endswith(path, ".toml") && check_results(path)
         end
     end
 end

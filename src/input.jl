@@ -100,6 +100,9 @@ function preprocess_Material!(Material::Vector)
         if haskey(mat, "type")
             mat["type"] = eval(Meta.parse(mat["type"]))
         end
+        if haskey(mat, "friction_with_rigidbody")
+            mat["friction_with_rigidbody"] = eval(Meta.parse(mat["friction_with_rigidbody"]))
+        end
     end
 end
 
