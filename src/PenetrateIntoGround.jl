@@ -148,14 +148,22 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
         end
 
         update!(cache, grid, pointstate)
+
+        # Point-to-grid transfer
         PoingrSimulator.P2G!(grid, pointstate, cache, dt)
         PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
+
+        # Boundary condition
         for bd in eachboundary(grid)
             @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n)
         end
+
+        # Grid-to-point transfer
         PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, soillayers, dt) # `soillayers` are for densities
 
+        # Update rigid body
         GeometricObjects.update!(rigidbody, dt)
+
         update!(logger, t += dt)
 
         if islogpoint(logger)
