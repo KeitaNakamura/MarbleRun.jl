@@ -2,7 +2,10 @@ using PoingrSimulator
 using Test
 
 using LinearAlgebra # norm
-using CSV
+using CSV           # history file
+using JLD2          # serialize
+
+# vtk
 using ReadVTK
 using NaturalSort
 
@@ -18,6 +21,7 @@ function check_results(inputtoml::String)
         proj_dir = dirname(inputtoml)
         output_dir = INPUT.Output.folder_name
 
+        # vtk files
         vtk_file = joinpath(
             "paraview",
             sort(
@@ -41,6 +45,17 @@ function check_results(inputtoml::String)
             @assert size(expected_points) == size(result_points)
             @test all(eachindex(expected_points)) do i
                 norm(expected_points[i] - result_points[i]) < 0.05*INPUT.General.grid_space
+            end
+        end
+
+        # serialized data file
+        if !fix_results
+            nsteps = floor(Int, INPUT.General.total_time / INPUT.Output.interval)
+            jldopen(joinpath(proj_dir, output_dir, "serialized_data.jld2"), "r") do file
+                @test keys(file) == string.(0:nsteps)
+                for i in keys(file)
+                    @test file[i] isa NamedTuple
+                end
             end
         end
 

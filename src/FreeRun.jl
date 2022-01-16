@@ -6,7 +6,7 @@ using Poingr
 using GeometricObjects
 
 using DelimitedFiles
-using Serialization
+using JLD2
 
 struct NodeState
     m::Float64
@@ -88,7 +88,8 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
     outputs["output directory"] = output_dir
     if INPUT.Output.serialize
-        mkpath(joinpath(output_dir, "serialize"))
+        outputs["serialized_data_file"] = joinpath(outputs["output directory"], "serialized_data.jld2")
+        jldopen(identity, outputs["serialized_data_file"], "w"; compress = true)
     end
     if INPUT.Output.paraview
         mkpath(joinpath(output_dir, "paraview"))
@@ -182,8 +183,9 @@ function writeoutput(
     end
 
     if INPUT.Output.serialize
-        serialize(joinpath(outputs["output directory"], "serialize", string("save", output_index)),
-                  (; pointstate, grid, rigidbodies, t))
+        jldopen(outputs["serialized_data_file"], "a"; compress = true) do file
+            file[string(output_index)] = (; pointstate, grid, rigidbodies, t)
+        end
     end
 
     if isdefined(Injection, :main_output)

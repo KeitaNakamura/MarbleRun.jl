@@ -6,8 +6,8 @@ version = "0.4.0"
 [deps]
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 GeometricObjects = "f167b195-1c3d-409a-8dd6-02cc02a656c6"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Poingr = "573615e8-489b-4e48-952b-fc194aa7573b"
-Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
