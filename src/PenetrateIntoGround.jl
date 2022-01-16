@@ -11,6 +11,7 @@ using Serialization
 struct NodeState
     m::Float64
     v::Vec{2, Float64}
+    v_n::Vec{2, Float64}
     m_contacted::Float64
     vᵣ::Vec{2, Float64}
     fc::Vec{2, Float64}
@@ -185,15 +186,16 @@ function writeoutput(
         Injection::Module,
     )
     if INPUT.Output.paraview
+        compress = true
         paraview_file = outputs["paraview file"]
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
-                vtk_points(vtm, pointstate.x) do vtk
+                vtk_points(vtm, pointstate.x; compress) do vtk
                     PoingrSimulator.write_vtk_points(vtk, pointstate)
                 end
                 vtk_grid(vtm, rigidbody)
                 if INPUT.Output.paraview_grid
-                    vtk_grid(vtm, grid) do vtk
+                    vtk_grid(vtm, grid; compress) do vtk
                         vtk["nodal contact force"] = vec(grid.state.fc)
                         vtk["nodal contact distance"] = vec(grid.state.d)
                         vtk["nodal friction"] = vec(grid.state.μ)

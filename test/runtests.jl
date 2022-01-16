@@ -22,7 +22,7 @@ function check_results(inputtoml::String)
             "paraview",
             sort(
                 filter(
-                    file -> endswith(file, ".vtu"),
+                    file -> endswith(file, "_1.vtu"),
                     only(walkdir(joinpath(proj_dir, output_dir, "paraview")))[3]
                 ),
                 lt = natural
