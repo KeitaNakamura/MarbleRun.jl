@@ -32,7 +32,7 @@ _parse_input(name, x::Dict) = Input{name}(; (Symbol(key) => _parse_input(Symbol(
 function parse_input(x::Dict)
     for section in keys(x)
         preprocess! = Symbol(:preprocess_, section, :!)
-        eval(preprocess!)(x[section])
+        isdefined(@__MODULE__, preprocess!) && eval(preprocess!)(x[section])
     end
     _parse_input(:Root, x)
 end
