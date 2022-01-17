@@ -19,7 +19,7 @@ bottom = "Inf"
 [Output]
 interval = 0.002 # (sec)  <0.01>
 folder_name = "output.tmp"
-serialize = true
+snapshots = true
 paraview = true
 paraview_grid = true
 copy_inputfile = true

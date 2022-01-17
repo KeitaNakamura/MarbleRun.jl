@@ -128,9 +128,9 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     # output directory
     output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
     outputs["output directory"] = output_dir
-    if INPUT.Output.serialize
-        outputs["serialized_data_file"] = joinpath(outputs["output directory"], "serialized_data.jld2")
-        jldopen(identity, outputs["serialized_data_file"], "w"; compress = true)
+    if INPUT.Output.snapshots
+        outputs["snapshots_file"] = joinpath(outputs["output directory"], "snapshots.jld2")
+        jldopen(identity, outputs["snapshots_file"], "w"; compress = true)
     end
     if INPUT.Output.paraview
         mkpath(joinpath(output_dir, "paraview"))
@@ -207,8 +207,8 @@ function writeoutput(
         end
     end
 
-    if INPUT.Output.serialize
-        jldopen(outputs["serialized_data_file"], "a"; compress = true) do file
+    if INPUT.Output.snapshots
+        jldopen(outputs["snapshots_file"], "a"; compress = true) do file
             file[string(output_index)] = (; pointstate, grid, rigidbody, t)
         end
     end

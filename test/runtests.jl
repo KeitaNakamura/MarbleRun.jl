@@ -51,7 +51,7 @@ function check_results(inputtoml::String)
         # serialized data file
         if !fix_results
             nsteps = floor(Int, INPUT.General.total_time / INPUT.Output.interval)
-            jldopen(joinpath(proj_dir, output_dir, "serialized_data.jld2"), "r") do file
+            jldopen(joinpath(proj_dir, output_dir, "snapshots.jld2"), "r") do file
                 @test keys(file) == string.(0:nsteps)
                 for i in keys(file)
                     @test file[i] isa NamedTuple
