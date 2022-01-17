@@ -14,7 +14,7 @@ bottom = 0.2
 
 [Output]
 interval = 0.01 # (sec)
-folder_name = "output.tmp"
+directory = "output.tmp"
 snapshots = true
 paraview = true
 paraview_grid = true
