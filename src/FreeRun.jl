@@ -49,6 +49,10 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     g = INPUT.General.gravity
     total_time = INPUT.General.total_time
 
+    # Material
+    materials = INPUT.Material
+    matmodels = map(mat -> PoingrSimulator.create_materialmodel(mat, coordinate_system), materials)
+
     # RigidBody
     rigidbodies = map(PoingrSimulator.create_rigidbody, INPUT.RigidBody)
 
@@ -58,7 +62,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate(PointState, grid, INPUT) do pointstate, matindex
-        mat = INPUT.Material[matindex]
+        mat = materials[matindex]
         ρ0 = mat.density
         @. pointstate.m = ρ0 * pointstate.V
         @. pointstate.b = Vec(0.0, -g)
@@ -95,7 +99,10 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, INPUT)
+        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
+            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
+        end
+        PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, INPUT, dt)
         update!(logger, t += dt)
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)

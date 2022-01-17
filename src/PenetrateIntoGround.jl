@@ -59,6 +59,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     soillayers = INPUT.SoilLayer
     H = sum(layer -> layer.thickness, soillayers)
     @assert H ≤ ymax
+    matmodels = map(layer -> PoingrSimulator.create_materialmodel(layer, coordinate_system), soillayers)
 
     # RigidBody
     rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))
@@ -151,7 +152,10 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT)
+        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
+            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
+        end
+        PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT, dt)
         update!(logger, t += dt)
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)

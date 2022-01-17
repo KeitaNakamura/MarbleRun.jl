@@ -1,3 +1,7 @@
+############
+# timestep #
+############
+
 function timestep(model::DruckerPrager, p, dx) # currently support only LinearElastic
     ρ = p.m / p.V
     v = norm(p.v)
@@ -14,48 +18,60 @@ function timestep(model::NewtonianFluid, p, dx)
     min(dx/(vc+v), dx^2/ν)
 end
 
-function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T, ξ::T) where {dim, T}
-    iszero(d) && return zero(Vec{dim, T})
-    n = normalize(d)
-    vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
-    f_nor = (1-ξ) * 2m/dt^2 * d
-    f_tan = m * (vᵣ_tan / dt)
-    Contact(:friction, μ; sep = true)(f_nor + f_tan, n)
-end
+####################
+# advance timestep #
+####################
 
-function compute_σ_dϵ_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    dϵ = symmetric(∇v) * dt
-    σ = matcalc(Val(:stress), model, σ_n, dϵ)
-    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    σ, dϵ, J*exp(tr(dϵ))
-end
+function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT, dt)
+    g = INPUT.General.gravity
+    materials = INPUT.Material
+    matmodels = map(mat -> create_materialmodel(mat, grid.coordinate_system), materials)
 
-function compute_σ_dϵ_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    dϵ = symmetric(∇v) * dt
-    σ = matcalc(Val(:stress), model, σ_n, dϵ)
-    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    if mean(σ) > model.tension_cutoff
-        # In this case, since the soil particles are not contacted with
-        # each other, soils should not act as continuum.
-        # This means that the deformation based on the contitutitive model
-        # no longer occurs.
-        # So, in this process, we just calculate the elastic strain to keep
-        # the consistency with the stress which is on the edge of the yield
-        # function, and ignore the plastic strain to prevent excessive generation.
-        # If we include this plastic strain, the volume of the material points
-        # will continue to increase unexpectedly.
-        σ_tr = matcalc(Val(:stress), model.elastic, σ_n, dϵ)
-        σ = Poingr.tension_cutoff(model, σ_tr)
-        dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
+    update!(cache, grid, pointstate)
+
+    # Point-to-grid transfer
+    P2G!(grid, pointstate, cache, dt)
+    masks = map(rigidbodies) do rigidbody
+        α = INPUT.Advanced.contact_threshold_scale
+        ξ = INPUT.Advanced.contact_penalty_parameter
+        P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, ξ)
     end
-    σ, dϵ, J*exp(tr(dϵ))
+
+    # Boundary conditions
+    boundary_contacts = create_boundary_contacts(INPUT.BoundaryCondition)
+    for bd in eachboundary(grid)
+        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
+    end
+
+    # Grid-to-point transfer
+    G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
+    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
+        input = INPUT.RigidBody[i]
+        if !getoftype(input, :control, true) # rigid bodies don't move freely by default
+            G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+        end
+    end
+
+    # Update rigid bodies
+    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
+        input = INPUT.RigidBody[i]
+        b = getoftype(input, :body_force, zero(Vec{2}))
+        if getoftype(input, :control, true) # rigid bodies don't move freely by default
+            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+        else
+            inds = findall(mask)
+            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+            Fc += rigidbody.m * Vec(0,-g) + b
+            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+        end
+    end
+
+    dt
 end
 
-function compute_σ_dϵ_J(model::NewtonianFluid, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    J = (1 + tr(∇v)*dt) * J
-    σ = matcalc(Val(:stress), model, ∇v, J, dt)
-    σ, zero(σ), J # NOTE: dϵ is used
-end
+##########################
+# point-to-grid transfer #
+##########################
 
 function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
     default_point_to_grid!(grid, pointstate, cache, dt)
@@ -92,6 +108,19 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
     mask
 end
 
+function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T, ξ::T) where {dim, T}
+    iszero(d) && return zero(Vec{dim, T})
+    n = normalize(d)
+    vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
+    f_nor = (1-ξ) * 2m/dt^2 * d
+    f_tan = m * (vᵣ_tan / dt)
+    Contact(:friction, μ; sep = true)(f_nor + f_tan, n)
+end
+
+##########################
+# grid-to-point transfer #
+##########################
+
 function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: InputMaterial}, dt::Real)
     default_grid_to_point!(pointstate, grid, cache, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
@@ -119,6 +148,48 @@ function G2P_contact!(pointstate::AbstractVector, grid::Grid, cache::MPCache, ri
     end
 end
 
+######################
+# stress integration #
+######################
+
+function compute_σ_dϵ_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
+    dϵ = symmetric(∇v) * dt
+    σ = matcalc(Val(:stress), model, σ_n, dϵ)
+    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
+    σ, dϵ, J*exp(tr(dϵ))
+end
+
+function compute_σ_dϵ_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
+    dϵ = symmetric(∇v) * dt
+    σ = matcalc(Val(:stress), model, σ_n, dϵ)
+    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
+    if mean(σ) > model.tension_cutoff
+        # In this case, since the soil particles are not contacted with
+        # each other, soils should not act as continuum.
+        # This means that the deformation based on the contitutitive model
+        # no longer occurs.
+        # So, in this process, we just calculate the elastic strain to keep
+        # the consistency with the stress which is on the edge of the yield
+        # function, and ignore the plastic strain to prevent excessive generation.
+        # If we include this plastic strain, the volume of the material points
+        # will continue to increase unexpectedly.
+        σ_tr = matcalc(Val(:stress), model.elastic, σ_n, dϵ)
+        σ = Poingr.tension_cutoff(model, σ_tr)
+        dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
+    end
+    σ, dϵ, J*exp(tr(dϵ))
+end
+
+function compute_σ_dϵ_J(model::NewtonianFluid, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
+    J = (1 + tr(∇v)*dt) * J
+    σ = matcalc(Val(:stress), model, ∇v, J, dt)
+    σ, zero(σ), J # NOTE: dϵ is used
+end
+
+######################
+# boundary condition #
+######################
+
 function boundary_velocity(v::Vec{2}, n::Vec{2}, boundary_contacts)
     n == Vec(-1,  0) && (side = :left)
     n == Vec( 1,  0) && (side = :right)
@@ -128,56 +199,9 @@ function boundary_velocity(v::Vec{2}, n::Vec{2}, boundary_contacts)
     v + contact(v, n)
 end
 
-function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT)
-    g = INPUT.General.gravity
-    materials = INPUT.Material
-    matmodels = map(mat -> create_materialmodel(mat, grid.coordinate_system), materials)
-
-    dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
-        PoingrSimulator.timestep(matmodels[pt.matindex], pt, minimum(gridsteps(grid)))
-    end
-
-    update!(cache, grid, pointstate)
-
-    # Point-to-grid transfer
-    PoingrSimulator.P2G!(grid, pointstate, cache, dt)
-    masks = map(rigidbodies) do rigidbody
-        α = INPUT.Advanced.contact_threshold_scale
-        ξ = INPUT.Advanced.contact_penalty_parameter
-        PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, ξ)
-    end
-
-    # Boundary conditions
-    boundary_contacts = create_boundary_contacts(INPUT.BoundaryCondition)
-    for bd in eachboundary(grid)
-        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
-    end
-
-    # Grid-to-point transfer
-    PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
-    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
-        input = INPUT.RigidBody[i]
-        if !getoftype(input, :control, true) # rigid bodies don't move freely by default
-            PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
-        end
-    end
-
-    # Update rigid bodies
-    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
-        input = INPUT.RigidBody[i]
-        b = getoftype(input, :body_force, zero(Vec{2}))
-        if getoftype(input, :control, true) # rigid bodies don't move freely by default
-            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
-        else
-            inds = findall(mask)
-            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
-            Fc += rigidbody.m * Vec(0,-g) + b
-            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
-        end
-    end
-
-    dt
-end
+##########
+# output #
+##########
 
 function write_vtk_points(vtk, pointstate::AbstractVector)
     σ = pointstate.σ
