@@ -42,15 +42,15 @@ parse_inputstring(str::AbstractString) = parse_input(TOML.parse(str))
 
 
 # helper functions for preprocess
-function parse_convert(::Type{T}, str::String)::T where {T}
+function eval_convert(::Type{T}, str::String)::T where {T}
     convert(T, eval(Meta.parse(str)))
 end
-function parse_convert(::Type{T}, val)::T where {T}
+function eval_convert(::Type{T}, val)::T where {T}
     convert(T, val)
 end
-function ifhaskey_parse_convert!(::Type{T}, dict::Dict, name::String) where {T}
+function ifhaskey_eval_convert!(::Type{T}, dict::Dict, name::String) where {T}
     if haskey(dict, name)
-        dict[name] = parse_convert(T, dict[name])
+        dict[name] = eval_convert(T, dict[name])
     end
 end
 
@@ -82,7 +82,7 @@ function create_boundary_contacts(BoundaryCondition::Input{:BoundaryCondition})
     dict = Dict{Symbol, Contact}()
     for side in (:left, :right, :bottom, :top)
         if haskey(BoundaryCondition, side)
-            coef = parse_convert(Float64, BoundaryCondition[side])
+            coef = eval_convert(Float64, BoundaryCondition[side]) # use `eval_convert` for "Inf"
             contact = Contact(:friction, coef)
         else
             contact = Contact(:slip)
@@ -107,9 +107,9 @@ const InputMaterial = Union{Input{:Material}, Input{:SoilLayer}}
 
 function preprocess_Material!(Material::Vector)
     for mat in Material
-        ifhaskey_parse_convert!(Function,               mat, "region")
-        ifhaskey_parse_convert!(Type{<: MaterialModel}, mat, "type")
-        ifhaskey_parse_convert!(Float64,                mat, "friction_with_rigidbody")
+        ifhaskey_eval_convert!(Function,               mat, "region")
+        ifhaskey_eval_convert!(Type{<: MaterialModel}, mat, "type")
+        ifhaskey_eval_convert!(Float64,                mat, "friction_with_rigidbody")
     end
 end
 
@@ -210,7 +210,7 @@ function preprocess_RigidBody!(RigidBody::Vector)
 end
 
 function preprocess_RigidBody!(RigidBody::Dict)
-    ifhaskey_parse_convert!(Type{<: Shape}, RigidBody, "type")
+    ifhaskey_eval_convert!(Type{<: Shape}, RigidBody, "type")
     if haskey(RigidBody, "control")
         if RigidBody["control"] === true
             # If the rigid body is controled, `density` should be `Inf`
