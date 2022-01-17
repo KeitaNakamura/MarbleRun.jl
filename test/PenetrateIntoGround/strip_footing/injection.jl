@@ -5,7 +5,7 @@ using PoingrSimulator.GeometricObjects
 const rigidbody_center_0 = Ref(Vec(NaN, NaN))
 
 function main_output(args)
-    history_file = joinpath(args.output_dir, "history.csv")
+    history_file = joinpath(args.INPUT.Output.directory, "history.csv")
 
     grid = args.grid
     rigidbody = args.rigidbody

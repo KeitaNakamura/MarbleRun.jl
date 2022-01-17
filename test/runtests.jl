@@ -3,7 +3,7 @@ using Test
 
 using LinearAlgebra # norm
 using CSV           # history file
-using JLD2          # serialize
+using JLD2          # snapshots
 
 # vtk
 using ReadVTK
@@ -19,7 +19,7 @@ function check_results(inputtoml::String)
 
         INPUT = PoingrSimulator.parse_inputfile(inputtoml)
         proj_dir = dirname(inputtoml)
-        output_dir = INPUT.Output.folder_name
+        output_dir = INPUT.Output.directory
 
         # vtk files
         vtk_file = joinpath(
@@ -48,7 +48,7 @@ function check_results(inputtoml::String)
             end
         end
 
-        # serialized data file
+        # snapshots file
         if !fix_results
             nsteps = floor(Int, INPUT.General.total_time / INPUT.Output.interval)
             jldopen(joinpath(proj_dir, output_dir, "snapshots.jld2"), "r") do file

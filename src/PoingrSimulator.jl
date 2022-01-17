@@ -20,18 +20,19 @@ end
 
 function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
     dict = TOML.parse(inputtoml)
+    dict["General"]["project_directory"] = proj_dir
+    dict["Output"]["directory"] = joinpath(proj_dir, dict["Output"]["directory"])
+    dict["Injection"] = Injection
     INPUT = parse_input(dict)
 
-    # create output directory
-    output_dir = joinpath(proj_dir, INPUT.Output.folder_name)
-    mkpath(output_dir)
-
-    # copy input toml file
+    mkpath(INPUT.Output.directory)
     if INPUT.Output.copy_inputfile
-        write(joinpath(output_dir, "input.toml"), inputtoml)
+        write(joinpath(INPUT.Output.directory, "input.toml"), inputtoml)
     end
 
-    INPUT.General.simulation.main(proj_dir, INPUT, Injection)
+    # use eval for error related with `Injection.main_output`: "method too new to be called from this world context."
+    # don't know the mechanism
+    @eval $INPUT.General.simulation.main($INPUT)
 end
 
 include("input.jl")

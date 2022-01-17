@@ -3,7 +3,7 @@ module Injection
 using PoingrSimulator.GeometricObjects
 
 function main_output(args)
-    history_file = joinpath(args.output_dir, "history.csv")
+    history_file = joinpath(args.INPUT.Output.directory, "history.csv")
 
     t = args.t
     rigidbody = only(args.rigidbodies)
