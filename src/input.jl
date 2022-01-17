@@ -26,6 +26,7 @@ getoftype(input::Input, name::Symbol, default)::typeof(default) = oftype(default
 ##############
 
 _parse_input(name, x) = x
+_parse_input(name, x::Base.RefValue) = x[]
 _parse_input(name, x::Vector) = first(x) isa Dict ? _parse_input.(name, x) : (x...,) # try vector => tuple except for table
 _parse_input(name, x::Dict) = Input{name}(; (Symbol(key) => _parse_input(Symbol(key), value) for (key, value) in x)...)
 
@@ -34,6 +35,7 @@ function parse_input(x::Dict)
         preprocess! = Symbol(:preprocess_, section, :!)
         isdefined(@__MODULE__, preprocess!) && eval(preprocess!)(x[section])
     end
+    @eval $(Symbol(x["General"]["simulation"])).preprocess_input!($x)
     _parse_input(:Root, x)
 end
 
@@ -186,7 +188,7 @@ function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, g
 
     # remove invalid pointstate
     α = getoftype(INPUT.Advanced, :contact_threshold_scale, 1.0)
-    haskey(INPUT, :RigidBody) && deleteat!(
+    !isempty(INPUT.RigidBody) && deleteat!(
         pointstate,
         findall(eachindex(pointstate)) do p
             xₚ = pointstate.x[p]

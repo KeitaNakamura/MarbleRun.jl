@@ -35,6 +35,17 @@ struct PointState
     matindex::Int
 end
 
+function preprocess_input!(dict::Dict)
+    dict["Material"] = dict["SoilLayer"]
+    for mat in dict["Material"]
+        mat["type"] = DruckerPrager
+    end
+    dict["BoundaryCondition"] = Dict{String, Any}("bottom" => Inf)
+    for rigidbody in dict["RigidBody"]
+        rigidbody["density"] = Inf # for calculation of effective mass in collision
+    end
+end
+
 function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     # General
@@ -45,12 +56,12 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     total_time = INPUT.General.total_time
 
     # SoilLayer
-    soillayers = INPUT.SoilLayer # reorder layers from low to high
+    soillayers = INPUT.SoilLayer
     H = sum(layer -> layer.thickness, soillayers)
     @assert H ≤ ymax
 
     # RigidBody
-    rigidbody = PoingrSimulator.create_rigidbody(Input{:RigidBody}(; density = Inf, INPUT.RigidBody...))
+    rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))
 
     # Advanced
     α = INPUT.Advanced.contact_threshold_scale

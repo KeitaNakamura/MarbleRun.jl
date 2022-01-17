@@ -36,6 +36,10 @@ struct PointState
     matindex::Int
 end
 
+function preprocess_input!(dict::Dict)
+    get!(dict, "RigidBody", Ref(GeometricObject[]))
+end
+
 function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     # General
@@ -46,7 +50,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     total_time = INPUT.General.total_time
 
     # RigidBody
-    rigidbodies = map(PoingrSimulator.create_rigidbody, get(INPUT, :RigidBody, GeometricObject[])::Vector)
+    rigidbodies = map(PoingrSimulator.create_rigidbody, INPUT.RigidBody)
 
     ##################
     # Initialization #
