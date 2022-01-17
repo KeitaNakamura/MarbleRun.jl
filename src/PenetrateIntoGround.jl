@@ -5,7 +5,6 @@ using PoingrSimulator: Input
 using Poingr
 using GeometricObjects
 
-using DelimitedFiles
 using JLD2
 
 struct NodeState
@@ -140,7 +139,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     if INPUT.Output.history
         outputs["history file"] = joinpath(output_dir, "history.csv")
         open(outputs["history file"], "w") do io
-            writedlm(io, ["disp" "force"], ',')
+            write(io, "disp,force\n")
         end
     end
 
@@ -200,7 +199,7 @@ function writeoutput(
             if INPUT.General.coordinate_system isa Axisymmetric
                 force *= 2π
             end
-            writedlm(io, [disp force], ',')
+            write(io, "$disp,$force,\n")
         end
     end
 

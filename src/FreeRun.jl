@@ -5,7 +5,6 @@ using PoingrSimulator: Input, getoftype
 using Poingr
 using GeometricObjects
 
-using DelimitedFiles
 using JLD2
 
 struct NodeState
