@@ -36,7 +36,7 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
 end
 
 include("input.jl")
-include("transfer.jl")
+include("methods.jl")
 include("PenetrateIntoGround.jl")
 include("FreeRun.jl")
 
