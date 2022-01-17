@@ -32,7 +32,7 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
 
     # use eval for error related with `Injection.main_output`: "method too new to be called from this world context."
     # don't know the mechanism
-    @eval $INPUT.General.simulation.main($INPUT)
+    @eval $INPUT.General.simulation.main($INPUT, $INPUT.General.simulation.initialize($INPUT)...)
 end
 
 include("input.jl")

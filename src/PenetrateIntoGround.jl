@@ -45,38 +45,26 @@ function preprocess_input!(dict::Dict)
     end
 end
 
-function main(INPUT::Input{:Root})
-
+function initialize(INPUT::Input{:Root})
     # General
     coordinate_system = INPUT.General.coordinate_system
     (xmin, xmax), (ymin, ymax) = INPUT.General.domain
     dx = INPUT.General.grid_space
     g = INPUT.General.gravity
-    total_time = INPUT.General.total_time
 
     # SoilLayer
     soillayers = INPUT.SoilLayer
-    H = sum(layer -> layer.thickness, soillayers)
+    H = sum(layer -> layer.thickness, soillayers) # ground surface
     @assert H ≤ ymax
-    matmodels = map(PoingrSimulator.create_materialmodel, soillayers)
-
-    # RigidBody
-    rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))
 
     # Advanced
     α = INPUT.Advanced.contact_threshold_scale
     nptsincell = INPUT.Advanced.npoints_in_cell
 
-
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate((x,y) -> y < H, PointState, grid; n = nptsincell)
-    cache = MPCache(grid, pointstate.x)
+    rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))
 
-    ##################
-    # Initialization #
-    ##################
-
-    # layer indices of points
     bottom = ymin
     for i in length(soillayers):-1:1 # from low to high
         layer = soillayers[i]
@@ -115,10 +103,25 @@ function main(INPUT::Input{:Root})
         end
     end
     @. pointstate.b = Vec(0.0, -g)
-    Poingr.reorder_pointstate!(pointstate, cache)
 
     translate!(rigidbody, Vec(0.0, H + (α-1)*(dx/nptsincell)/2))
-    rigidbody_center_0 = centroid(rigidbody)
+    t = 0.0
+
+    grid, pointstate, rigidbody, t, deepcopy(rigidbody)
+end
+
+function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, t, rigidbody0)
+
+    #############
+    # Constants #
+    #############
+
+    # General
+    dx = INPUT.General.grid_space
+    total_time = INPUT.General.total_time
+
+    # SoilLayer
+    matmodels = map(PoingrSimulator.create_materialmodel, INPUT.SoilLayer)
 
     ################
     # Output files #
@@ -144,10 +147,15 @@ function main(INPUT::Input{:Root})
 
     println("Particles: ", length(pointstate))
 
-    t = 0.0
+    ##################
+    # Run simulation #
+    ##################
+
+    cache = MPCache(grid, pointstate.x)
     logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
+    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody0, t, INPUT)
+
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
@@ -156,7 +164,7 @@ function main(INPUT::Input{:Root})
         update!(logger, t += dt)
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT)
+            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody0, t, INPUT)
         end
     end
 end
@@ -167,7 +175,7 @@ function writeoutput(
         pointstate::AbstractVector,
         rigidbody::GeometricObject,
         output_index::Int,
-        rigidbody_center_0::Vec,
+        rigidbody0::GeometricObject,
         t::Real,
         INPUT::Input{:Root},
     )
@@ -195,7 +203,7 @@ function writeoutput(
     if INPUT.Output.history
         history_file = outputs["history file"]
         open(history_file, "a") do io
-            disp = abs(centroid(rigidbody)[2] - rigidbody_center_0[2])
+            disp = abs(centroid(rigidbody)[2] - centroid(rigidbody0)[2])
             force = -sum(grid.state.fc)[2]
             if INPUT.General.coordinate_system isa Axisymmetric
                 force *= 2π
@@ -206,7 +214,7 @@ function writeoutput(
 
     if INPUT.Output.snapshots
         jldopen(outputs["snapshots_file"], "a"; compress = true) do file
-            file[string(output_index)] = (; pointstate, grid, rigidbody, t)
+            file[string(output_index)] = (; grid, pointstate, rigidbody, t, rigidbody0)
         end
     end
 
@@ -220,14 +228,6 @@ function writeoutput(
             output_index,
         )
         INPUT.Injection.main_output(args)
-    end
-end
-
-function boundary_velocity(v::Vec, n::Vec)
-    if n == Vec(0, -1) # bottom
-        v + Contact(:sticky)(v, n)
-    else
-        v + Contact(:slip)(v, n)
     end
 end
 

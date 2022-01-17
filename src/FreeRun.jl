@@ -39,25 +39,14 @@ function preprocess_input!(dict::Dict)
     get!(dict, "RigidBody", Ref(GeometricObject[]))
 end
 
-function main(INPUT::Input{:Root})
-
-    # General
+function initialize(INPUT::Input{:Root})
     coordinate_system = INPUT.General.coordinate_system
     (xmin, xmax), (ymin, ymax) = INPUT.General.domain
     dx = INPUT.General.grid_space
     g = INPUT.General.gravity
-    total_time = INPUT.General.total_time
 
-    # Material
     materials = INPUT.Material
-    matmodels = map(PoingrSimulator.create_materialmodel, materials)
-
-    # RigidBody
     rigidbodies = map(PoingrSimulator.create_rigidbody, INPUT.RigidBody)
-
-    ##################
-    # Initialization #
-    ##################
 
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate(PointState, grid, INPUT) do pointstate, matindex
@@ -71,7 +60,23 @@ function main(INPUT::Input{:Root})
             @. pointstate.μ = mat.friction_with_rigidbody
         end
     end
-    cache = MPCache(grid, pointstate.x)
+    t = 0.0
+
+    grid, pointstate, rigidbodies, t
+end
+
+function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
+
+    #############
+    # Constants #
+    #############
+
+    # General
+    dx = INPUT.General.grid_space
+    total_time = INPUT.General.total_time
+
+    # Material models
+    matmodels = map(PoingrSimulator.create_materialmodel, INPUT.Material)
 
     ################
     # Output files #
@@ -91,10 +96,15 @@ function main(INPUT::Input{:Root})
 
     println("Particles: ", length(pointstate))
 
-    t = 0.0
+    ##################
+    # Run simulation #
+    ##################
+
+    cache = MPCache(grid, pointstate.x)
     logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT)
+
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
@@ -142,7 +152,7 @@ function writeoutput(
 
     if INPUT.Output.snapshots
         jldopen(outputs["snapshots_file"], "a"; compress = true) do file
-            file[string(output_index)] = (; pointstate, grid, rigidbodies, t)
+            file[string(output_index)] = (; grid, pointstate, rigidbodies, t)
         end
     end
 
