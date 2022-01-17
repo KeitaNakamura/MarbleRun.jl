@@ -85,7 +85,11 @@ function create_boundary_contacts(BoundaryCondition::Input{:BoundaryCondition})
     for side in (:left, :right, :bottom, :top)
         if haskey(BoundaryCondition, side)
             coef = eval_convert(Float64, BoundaryCondition[side]) # use `eval_convert` for "Inf"
-            contact = Contact(:friction, coef)
+            if isinf(coef)
+                contact = Contact(:sticky)
+            else
+                contact = Contact(:friction, coef)
+            end
         else
             contact = Contact(:slip)
         end

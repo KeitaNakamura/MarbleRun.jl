@@ -40,7 +40,7 @@ dilatancy_angle = 0.0 # (degree)
 tension_cutoff = 0.0
 friction_with_rigidbody = 0.41
 
-[RigidBody]
+[[RigidBody]]
 type = "Polygon"
 coordinates = [[0.075, 1.0], [0.075, 0.0], [0.095, 0.0], [0.095, 1.0]]
 velocity = [0.0, -2.0] # (m/s)
