@@ -119,6 +119,64 @@ function G2P_contact!(pointstate::AbstractVector, grid::Grid, cache::MPCache, ri
     end
 end
 
+function boundary_velocity(v::Vec{2}, n::Vec{2}, boundary_contacts)
+    n == Vec(-1,  0) && (side = :left)
+    n == Vec( 1,  0) && (side = :right)
+    n == Vec( 0, -1) && (side = :bottom)
+    n == Vec( 0,  1) && (side = :top)
+    contact = boundary_contacts[side]
+    v + contact(v, n)
+end
+
+function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT)
+    g = INPUT.General.gravity
+
+    materials = INPUT.Material
+    matmodels = map(mat -> create_materialmodel(mat, grid.coordinate_system), materials)
+
+    dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
+        PoingrSimulator.timestep(matmodels[pt.matindex], pt, minimum(gridsteps(grid)))
+    end
+
+    update!(cache, grid, pointstate)
+
+    # Point-to-grid transfer
+    PoingrSimulator.P2G!(grid, pointstate, cache, dt)
+    masks = map(rigidbodies) do rigidbody
+        α = INPUT.Advanced.contact_threshold_scale
+        ξ = INPUT.Advanced.contact_penalty_parameter
+        PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, ξ)
+    end
+
+    # Boundary conditions
+    boundary_contacts = create_boundary_contacts(INPUT.BoundaryCondition)
+    for bd in eachboundary(grid)
+        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
+    end
+
+    # Grid-to-point transfer
+    PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
+    for (rigidbody, mask) in zip(rigidbodies, masks)
+        PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+    end
+
+    # Update rigid bodies
+    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
+        input = INPUT.RigidBody[i]
+        b = getoftype(input, :body_force, zero(Vec{2}))
+        if getoftype(input, :control, true) # rigid bodies don't move freely by default
+            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+        else
+            inds = findall(mask)
+            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+            Fc += rigidbody.m * Vec(0,-g) + b
+            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+        end
+    end
+
+    dt
+end
+
 function write_vtk_points(vtk, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
