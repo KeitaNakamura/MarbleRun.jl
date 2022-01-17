@@ -200,7 +200,7 @@ function writeoutput(
             if INPUT.General.coordinate_system isa Axisymmetric
                 force *= 2π
             end
-            write(io, "$disp,$force,\n")
+            write(io, "$disp,$force\n")
         end
     end
 
