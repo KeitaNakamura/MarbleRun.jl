@@ -59,7 +59,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     soillayers = INPUT.SoilLayer
     H = sum(layer -> layer.thickness, soillayers)
     @assert H ≤ ymax
-    matmodels = map(layer -> PoingrSimulator.create_materialmodel(layer, coordinate_system), soillayers)
+    matmodels = map(PoingrSimulator.create_materialmodel, soillayers)
 
     # RigidBody
     rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))

@@ -22,6 +22,7 @@ copy_inputfile = true
 
 [[Material]]
 type = "DruckerPrager"
+mohr_coulomb_type = "plane_strain"
 region = "(x,y) -> 0.4 < x < 0.6 && y < 0.3"
 density = 1.6e3       # (kg/m3)
 poissons_ratio = 0.3

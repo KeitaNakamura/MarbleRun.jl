@@ -119,11 +119,12 @@ function preprocess_Material!(Material::Vector)
     end
 end
 
-function create_materialmodel(mat::InputMaterial, coordinate_system)
-    create_materialmodel(mat.type, mat, coordinate_system)
+function create_materialmodel(mat::InputMaterial)
+    create_materialmodel(mat.type, mat)
 end
 
-function create_materialmodel(::Type{DruckerPrager}, params::InputMaterial, coordinate_system)
+function create_materialmodel(::Type{DruckerPrager}, params::InputMaterial)
+    mohr_coulomb_type = params.mohr_coulomb_type
     E = params.youngs_modulus
     ν = params.poissons_ratio
     c = params.cohesion
@@ -131,14 +132,10 @@ function create_materialmodel(::Type{DruckerPrager}, params::InputMaterial, coor
     ψ = params.dilatancy_angle
     tension_cutoff = params.tension_cutoff
     elastic = LinearElastic(; E, ν)
-    if coordinate_system isa PlaneStrain
-        DruckerPrager(elastic, :plane_strain; c, ϕ, ψ, tension_cutoff)
-    else
-        DruckerPrager(elastic, :circumscribed; c, ϕ, ψ, tension_cutoff)
-    end
+    DruckerPrager(elastic, mohr_coulomb_type; c, ϕ, ψ, tension_cutoff)
 end
 
-function create_materialmodel(::Type{NewtonianFluid}, params::InputMaterial, coordinate_system)
+function create_materialmodel(::Type{NewtonianFluid}, params::InputMaterial)
     ρ0 = params.density
     P0 = params.pressure
     c = params.sound_of_speed

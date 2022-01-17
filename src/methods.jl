@@ -25,7 +25,7 @@ end
 function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT, dt)
     g = INPUT.General.gravity
     materials = INPUT.Material
-    matmodels = map(mat -> create_materialmodel(mat, grid.coordinate_system), materials)
+    matmodels = map(create_materialmodel, materials)
 
     update!(cache, grid, pointstate)
 
@@ -65,8 +65,6 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
             GeometricObjects.update!(rigidbody, Fc, Mc, dt)
         end
     end
-
-    dt
 end
 
 ##########################

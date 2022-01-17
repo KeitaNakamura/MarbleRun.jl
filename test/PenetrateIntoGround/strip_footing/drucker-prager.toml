@@ -19,6 +19,7 @@ paraview_grid = true
 copy_inputfile = true
 
 [[SoilLayer]]
+mohr_coulomb_type = "plane_strain"
 thickness = 5.0 # (m)
 density = 1e3 # (kg/m3)
 poissons_ratio = 0.3

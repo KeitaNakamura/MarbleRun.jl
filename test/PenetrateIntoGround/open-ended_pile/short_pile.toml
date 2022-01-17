@@ -19,6 +19,7 @@ paraview_grid = true
 copy_inputfile = true
 
 [[SoilLayer]]
+mohr_coulomb_type = "circumscribed"
 thickness = 0.1 # (m)
 density = 1300.0 # (kg/m3)
 poissons_ratio = 0.333
@@ -30,6 +31,7 @@ tension_cutoff = 0.0
 friction_with_rigidbody = [0.0, 0.0, 0.35, 0.35]
 
 [[SoilLayer]]
+mohr_coulomb_type = "circumscribed"
 thickness = 0.9 # (m)
 density = 1500.0 # (kg/m3)
 poissons_ratio = 0.333

@@ -51,7 +51,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     # Material
     materials = INPUT.Material
-    matmodels = map(mat -> PoingrSimulator.create_materialmodel(mat, coordinate_system), materials)
+    matmodels = map(PoingrSimulator.create_materialmodel, materials)
 
     # RigidBody
     rigidbodies = map(PoingrSimulator.create_rigidbody, INPUT.RigidBody)
