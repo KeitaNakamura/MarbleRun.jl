@@ -65,11 +65,6 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     # Initialization #
     ##################
 
-    # constitutive models of layers
-    matmodels = map(soillayers) do params
-        PoingrSimulator.create_materialmodel(DruckerPrager, params, coordinate_system)
-    end
-
     # layer indices of points
     bottom = ymin
     for i in length(soillayers):-1:1 # from low to high
@@ -145,29 +140,8 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
-            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
-        end
-
-        update!(cache, grid, pointstate)
-
-        # Point-to-grid transfer
-        PoingrSimulator.P2G!(grid, pointstate, cache, dt)
-        PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
-
-        # Boundary condition
-        for bd in eachboundary(grid)
-            @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n)
-        end
-
-        # Grid-to-point transfer
-        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, soillayers, dt) # `soillayers` are for densities
-
-        # Update rigid body
-        GeometricObjects.update!(rigidbody, dt)
-
+        dt = PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT)
         update!(logger, t += dt)
-
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
             writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody_center_0, t, INPUT, Injection)
