@@ -45,14 +45,8 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     g = INPUT.General.gravity
     total_time = INPUT.General.total_time
 
-    # Material
-    materials = INPUT.Material
-
     # RigidBody
     rigidbodies = map(PoingrSimulator.create_rigidbody, get(INPUT, :RigidBody, GeometricObject[])::Vector)
-
-    # Advanced
-    α = getoftype(INPUT.Advanced, :contact_threshold_scale, 1.0)
 
     ##################
     # Initialization #
@@ -60,7 +54,7 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
 
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate(PointState, grid, INPUT) do pointstate, matindex
-        mat = materials[matindex]
+        mat = INPUT.Material[matindex]
         ρ0 = mat.density
         @. pointstate.m = ρ0 * pointstate.V
         @. pointstate.b = Vec(0.0, -g)
@@ -71,14 +65,6 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
         end
     end
     cache = MPCache(grid, pointstate.x)
-
-    # constitutive models
-    matmodels = map(materials) do mat
-        PoingrSimulator.create_materialmodel(mat.type, mat, coordinate_system)
-    end
-
-    # boundary contacts
-    boundary_contacts = PoingrSimulator.create_boundary_contacts(INPUT.BoundaryCondition)
 
     ################
     # Output files #
@@ -105,45 +91,8 @@ function main(proj_dir::AbstractString, INPUT::Input{:Root}, Injection::Module)
     update!(logger, t)
     writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT, Injection)
     while !isfinised(logger, t)
-        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
-            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
-        end
-
-        update!(cache, grid, pointstate)
-
-        # Point-to-grid transfer
-        PoingrSimulator.P2G!(grid, pointstate, cache, dt)
-        masks = map(rigidbodies) do rigidbody
-            PoingrSimulator.P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, INPUT.Advanced.contact_penalty_parameter)
-        end
-
-        # Boundary conditions
-        for bd in eachboundary(grid)
-            @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
-        end
-
-        # Grid-to-point transfer
-        PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
-        for (rigidbody, mask) in zip(rigidbodies, masks)
-            PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
-        end
-
-        # Update rigid bodies
-        for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
-            input = INPUT.RigidBody[i]
-            b = getoftype(input, :body_force, zero(Vec{2}))
-            if getoftype(input, :control, false)
-                GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
-            else
-                inds = findall(mask)
-                Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
-                Fc += rigidbody.m * Vec(0,-g) + b
-                GeometricObjects.update!(rigidbody, Fc, Mc, dt)
-            end
-        end
-
+        dt = PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, INPUT)
         update!(logger, t += dt)
-
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
             writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT, Injection)
@@ -202,15 +151,6 @@ function writeoutput(
         )
         Injection.main_output(args)
     end
-end
-
-function boundary_velocity(v::Vec{2}, n::Vec{2}, boundary_contacts)
-    n == Vec(-1,  0) && (side = :left)
-    n == Vec( 1,  0) && (side = :right)
-    n == Vec( 0, -1) && (side = :bottom)
-    n == Vec( 0,  1) && (side = :top)
-    contact = boundary_contacts[side]
-    v + contact(v, n)
 end
 
 end
