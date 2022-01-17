@@ -31,8 +31,7 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
         write(joinpath(output_dir, "input.toml"), inputtoml)
     end
 
-    simulation = Symbol(INPUT.General.simulation)
-    @eval $simulation.main($proj_dir, $INPUT, $Injection)
+    INPUT.General.simulation.main(proj_dir, INPUT, Injection)
 end
 
 include("input.jl")

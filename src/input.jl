@@ -35,7 +35,7 @@ function parse_input(x::Dict)
         preprocess! = Symbol(:preprocess_, section, :!)
         isdefined(@__MODULE__, preprocess!) && eval(preprocess!)(x[section])
     end
-    @eval $(Symbol(x["General"]["simulation"])).preprocess_input!($x)
+    x["General"]["simulation"].preprocess_input!(x)
     _parse_input(:Root, x)
 end
 
@@ -61,6 +61,8 @@ end
 ###########
 
 function preprocess_General!(General::Dict)
+    ifhaskey_eval_convert!(Module, General, "simulation")
+
     if haskey(General, "coordinate_system")
         coordinate_system = General["coordinate_system"]
         if coordinate_system == "plane_strain"
