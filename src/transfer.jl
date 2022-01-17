@@ -130,7 +130,6 @@ end
 
 function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT)
     g = INPUT.General.gravity
-
     materials = INPUT.Material
     matmodels = map(mat -> create_materialmodel(mat, grid.coordinate_system), materials)
 
@@ -156,8 +155,11 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Grid-to-point transfer
     PoingrSimulator.G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
-    for (rigidbody, mask) in zip(rigidbodies, masks)
-        PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
+        input = INPUT.RigidBody[i]
+        if !getoftype(input, :control, true) # rigid bodies don't move freely by default
+            PoingrSimulator.G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+        end
     end
 
     # Update rigid bodies
