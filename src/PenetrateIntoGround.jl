@@ -107,14 +107,12 @@ function initialize(INPUT::Input{:Root})
     translate!(rigidbody, Vec(0.0, H + (α-1)*(dx/nptsincell)/2))
     t = 0.0
 
-    grid, pointstate, rigidbody, t, deepcopy(rigidbody)
+    grid, pointstate, rigidbody, deepcopy(rigidbody), t
 end
 
-function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, t, rigidbody0)
+function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
 
-    #############
-    # Constants #
-    #############
+    println("Particles: ", length(pointstate))
 
     # General
     dx = INPUT.General.grid_space
@@ -129,23 +127,31 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, t, rigidbody0)
 
     output_dir = INPUT.Output.directory
     outputs = Dict{String, Any}()
+    if INPUT.Output.paraview
+        mkpath(joinpath(output_dir, "paraview"))
+        outputs["paraview_file"] = joinpath(output_dir, "paraview", "output")
+        paraview_collection(vtk_save, outputs["paraview_file"])
+    end
+    if INPUT.Output.history
+        outputs["history_file"] = joinpath(output_dir, "history.csv")
+        open(outputs["history_file"], "w") do io
+            write(io, "disp,force\n")
+        end
+    end
     if INPUT.Output.snapshots
         outputs["snapshots_file"] = joinpath(output_dir, "snapshots.jld2")
         jldopen(identity, outputs["snapshots_file"], "w"; compress = true)
     end
-    if INPUT.Output.paraview
-        mkpath(joinpath(output_dir, "paraview"))
-        outputs["paraview file"] = joinpath(output_dir, "paraview", "output")
-        paraview_collection(vtk_save, outputs["paraview file"])
+    if isdefined(INPUT.Injection, :main_output)
+        INPUT.Injection.main_output_initialize((;
+            INPUT,
+            grid,
+            pointstate,
+            rigidbody,
+            rigidbody0,
+            t,
+        ))
     end
-    if INPUT.Output.history
-        outputs["history file"] = joinpath(output_dir, "history.csv")
-        open(outputs["history file"], "w") do io
-            write(io, "disp,force\n")
-        end
-    end
-
-    println("Particles: ", length(pointstate))
 
     ##################
     # Run simulation #
@@ -154,7 +160,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, t, rigidbody0)
     cache = MPCache(grid, pointstate.x)
     logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody0, t, INPUT)
+    writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
 
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
@@ -164,24 +170,24 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, t, rigidbody0)
         update!(logger, t += dt)
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, rigidbody, logindex(logger), rigidbody0, t, INPUT)
+            writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
         end
     end
 end
 
 function writeoutput(
         outputs::Dict{String, Any},
+        INPUT::Input{:Root},
         grid::Grid,
         pointstate::AbstractVector,
         rigidbody::GeometricObject,
-        output_index::Int,
         rigidbody0::GeometricObject,
         t::Real,
-        INPUT::Input{:Root},
+        output_index::Int,
     )
     if INPUT.Output.paraview
         compress = true
-        paraview_file = outputs["paraview file"]
+        paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x; compress) do vtk
@@ -201,7 +207,7 @@ function writeoutput(
     end
 
     if INPUT.Output.history
-        history_file = outputs["history file"]
+        history_file = outputs["history_file"]
         open(history_file, "a") do io
             disp = abs(centroid(rigidbody)[2] - centroid(rigidbody0)[2])
             force = -sum(grid.state.fc)[2]
@@ -214,20 +220,20 @@ function writeoutput(
 
     if INPUT.Output.snapshots
         jldopen(outputs["snapshots_file"], "a"; compress = true) do file
-            file[string(output_index)] = (; grid, pointstate, rigidbody, t, rigidbody0)
+            file[string(output_index)] = (; grid, pointstate, rigidbody, rigidbody0, t)
         end
     end
 
     if isdefined(INPUT.Injection, :main_output)
-        args = (;
+        INPUT.Injection.main_output((;
+            INPUT,
             grid,
             pointstate,
             rigidbody,
-            INPUT,
+            rigidbody0,
             t,
             output_index,
-        )
-        INPUT.Injection.main_output(args)
+        ))
     end
 end
 

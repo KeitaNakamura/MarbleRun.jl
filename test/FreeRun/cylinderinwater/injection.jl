@@ -2,16 +2,19 @@ module Injection
 
 using PoingrSimulator.GeometricObjects
 
+function main_output_initialize(args)
+    INPUT = args.INPUT
+
+    history_file = joinpath(INPUT.Output.directory, "history.csv")
+    write(history_file, join(["t", "x", "y", "v_x", "v_y"], ",") * "\n")
+end
+
 function main_output(args)
-    history_file = joinpath(args.INPUT.Output.directory, "history.csv")
-
-    t = args.t
+    INPUT = args.INPUT
     rigidbody = only(args.rigidbodies)
+    t = args.t
 
-    if args.output_index == 0
-        write(history_file, join(["t", "x", "y", "v_x", "v_y"], ",") * "\n")
-    end
-
+    history_file = joinpath(INPUT.Output.directory, "history.csv")
     open(history_file, "a") do io
         x, y = centroid(rigidbody)
         vx, vy = rigidbody.v

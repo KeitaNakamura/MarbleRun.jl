@@ -3,6 +3,7 @@ module PoingrSimulator
 using Poingr
 using GeometricObjects
 using TOML
+using JLD2
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
@@ -18,12 +19,32 @@ function main(inputtoml_file::AbstractString, Injection::Module)
     main(proj_dir, inputtoml, Injection)
 end
 
-function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
+function build_INPUT(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
     dict = TOML.parse(inputtoml)
     dict["General"]["project_directory"] = proj_dir
-    dict["Output"]["directory"] = joinpath(proj_dir, dict["Output"]["directory"])
     dict["Injection"] = Injection
+    if haskey(dict["General"], "restart")
+        dir_ext = splitext(dict["Output"]["directory"]) # handle .tmp folder
+        output_dir = string(dir_ext[1], "_restarted_from_", dict["General"]["restart"], dir_ext[2])
+        dict["Output"]["original_directory"] = joinpath(proj_dir, dict["Output"]["directory"])
+        dict["Output"]["directory"] = joinpath(proj_dir, output_dir)
+    else
+        dict["Output"]["directory"] = joinpath(proj_dir, dict["Output"]["directory"])
+    end
     INPUT = parse_input(dict)
+    INPUT
+end
+
+function build_INPUT(inputtoml_file::AbstractString)
+    @assert isfile(inputtoml_file)
+    proj_dir = dirname(inputtoml_file)
+    inputtoml = read(inputtoml_file, String)
+    injection_file = joinpath(proj_dir, "injection.jl")
+    build_INPUT(proj_dir, inputtoml, isfile(injection_file) ? include(injection_file) : Module())
+end
+
+function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Module)
+    INPUT = build_INPUT(proj_dir, inputtoml, Injection)
 
     mkpath(INPUT.Output.directory)
     if INPUT.Output.copy_inputfile
@@ -32,7 +53,14 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
 
     # use eval for error related with `Injection.main_output`: "method too new to be called from this world context."
     # don't know the mechanism
-    @eval $INPUT.General.simulation.main($INPUT, $INPUT.General.simulation.initialize($INPUT)...)
+    if haskey(INPUT.General, :restart)
+        file = joinpath(INPUT.Output.original_directory, "snapshots.jld2")
+        num = string(INPUT.General.restart)
+        data = load(file)[num]
+        @eval $INPUT.General.simulation.main($INPUT, $data...)
+    else
+        @eval $INPUT.General.simulation.main($INPUT, $INPUT.General.simulation.initialize($INPUT)...)
+    end
 end
 
 include("input.jl")

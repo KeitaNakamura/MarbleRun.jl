@@ -67,9 +67,7 @@ end
 
 function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
 
-    #############
-    # Constants #
-    #############
+    println("Particles: ", length(pointstate))
 
     # General
     dx = INPUT.General.grid_space
@@ -84,17 +82,24 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
 
     output_dir = INPUT.Output.directory
     outputs = Dict{String, Any}()
+    if INPUT.Output.paraview
+        mkpath(joinpath(output_dir, "paraview"))
+        outputs["paraview_file"] = joinpath(output_dir, "paraview", "output")
+        paraview_collection(vtk_save, outputs["paraview_file"])
+    end
     if INPUT.Output.snapshots
         outputs["snapshots_file"] = joinpath(output_dir, "snapshots.jld2")
         jldopen(identity, outputs["snapshots_file"], "w"; compress = true)
     end
-    if INPUT.Output.paraview
-        mkpath(joinpath(output_dir, "paraview"))
-        outputs["paraview file"] = joinpath(output_dir, "paraview", "output")
-        paraview_collection(vtk_save, outputs["paraview file"])
+    if isdefined(INPUT.Injection, :main_output)
+        INPUT.Injection.main_output_initialize((;
+            INPUT,
+            grid,
+            pointstate,
+            rigidbodies,
+            t,
+        ))
     end
-
-    println("Particles: ", length(pointstate))
 
     ##################
     # Run simulation #
@@ -103,7 +108,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
     cache = MPCache(grid, pointstate.x)
     logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT)
+    writeoutput(outputs, INPUT, grid, pointstate, rigidbodies, t, logindex(logger))
 
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
@@ -113,23 +118,23 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
         update!(logger, t += dt)
         if islogpoint(logger)
             Poingr.reorder_pointstate!(pointstate, cache)
-            writeoutput(outputs, grid, pointstate, rigidbodies, logindex(logger), t, INPUT)
+            writeoutput(outputs, INPUT, grid, pointstate, rigidbodies, t, logindex(logger))
         end
     end
 end
 
 function writeoutput(
         outputs::Dict{String, Any},
+        INPUT::Input{:Root},
         grid::Grid,
         pointstate::AbstractVector,
         rigidbodies::Vector{<: GeometricObject},
-        output_index::Int,
         t::Real,
-        INPUT::Input{:Root},
+        output_index::Int,
     )
     if INPUT.Output.paraview
         compress = true
-        paraview_file = outputs["paraview file"]
+        paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x; compress) do vtk
@@ -157,15 +162,14 @@ function writeoutput(
     end
 
     if isdefined(INPUT.Injection, :main_output)
-        args = (;
+        INPUT.Injection.main_output((;
+            INPUT,
             grid,
             pointstate,
             rigidbodies,
-            INPUT,
             t,
             output_index,
-        )
-        INPUT.Injection.main_output(args)
+        ))
     end
 end
 

@@ -1,0 +1,42 @@
+# sand column collapse
+
+[General]
+simulation = "FreeRun"
+coordinate_system = "plane_strain" # plane_strain
+domain = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space = 0.01  # (m)
+gravity = 9.81     # (m/s2)
+total_time = 0.6  # (sec)
+show_progress = false
+restart = 30
+
+[BoundaryCondition]
+bottom = 0.2
+
+[Output]
+interval = 0.01 # (sec)
+directory = "output.tmp"
+snapshots = true
+paraview = true
+paraview_grid = true
+copy_inputfile = true
+
+[[Material]]
+type = "DruckerPrager"
+mohr_coulomb_type = "plane_strain"
+region = "(x,y) -> 0.4 < x < 0.6 && y < 0.3"
+density = 1.6e3       # (kg/m3)
+poissons_ratio = 0.3
+youngs_modulus = 1e6  # (N/m2)
+cohesion = 0.0        # (N/m2)
+friction_angle = 38.0 # (degree)
+dilatancy_angle = 0.0 # (degree)
+tension_cutoff = 0.0
+[Material.Initialization]
+type = "K0"
+K0 = 0.5
+reference_height = 0.3
+
+[Advanced]
+CFL = 1.0
+npoints_in_cell = 2 # in each dimension
