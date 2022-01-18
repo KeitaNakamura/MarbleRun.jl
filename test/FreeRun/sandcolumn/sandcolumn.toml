@@ -1,7 +1,7 @@
 # sand column collapse
 
 [General]
-simulation = "FreeRun"
+type = "FreeRun"
 coordinate_system = "plane_strain" # plane_strain
 domain = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.01  # (m)

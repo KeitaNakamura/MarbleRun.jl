@@ -35,7 +35,9 @@ function parse_input(x::Dict)
         preprocess! = Symbol(:preprocess_, section, :!)
         isdefined(@__MODULE__, preprocess!) && eval(preprocess!)(x[section])
     end
-    x["General"]["simulation"].preprocess_input!(x)
+    if haskey(x["General"], "type")
+        x["General"]["type"].preprocess_input!(x)
+    end
     _parse_input(:Root, x)
 end
 
@@ -61,7 +63,7 @@ end
 ###########
 
 function preprocess_General!(General::Dict)
-    ifhaskey_eval_convert!(Module, General, "simulation")
+    ifhaskey_eval_convert!(Module, General, "type")
 
     if haskey(General, "coordinate_system")
         coordinate_system = General["coordinate_system"]

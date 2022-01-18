@@ -57,9 +57,9 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
         file = joinpath(INPUT.Output.original_directory, "snapshots.jld2")
         num = string(INPUT.General.restart)
         data = load(file)[num]
-        @eval $INPUT.General.simulation.main($INPUT, $data...)
+        @eval $INPUT.General.type.main($INPUT, $data...)
     else
-        @eval $INPUT.General.simulation.main($INPUT, $INPUT.General.simulation.initialize($INPUT)...)
+        @eval $INPUT.General.type.main($INPUT, $INPUT.General.type.initialize($INPUT)...)
     end
 end
 
