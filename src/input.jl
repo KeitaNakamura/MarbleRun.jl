@@ -152,9 +152,11 @@ function initialize_stress!(σₚ::AbstractVector, material::Input{:Material}, g
     Initialization = material.Initialization
     ρ0 = material.density
     if Initialization.type == "K0"
+        ν = material.poissons_ratio
+        K0 = Initialization.K0 == "auto" ? ν / (1 - ν) : Initialization.K0
         for p in eachindex(σₚ)
             σ_y = -ρ0 * g * Initialization.reference_height
-            σ_x = Initialization.K0 * σ_y
+            σ_x = K0 * σ_y
             σₚ[p] = (@Mat [σ_x 0.0 0.0
                            0.0 σ_y 0.0
                            0.0 0.0 σ_x]) |> symmetric
