@@ -30,7 +30,7 @@ struct PointState
     ∇v::SecondOrderTensor{3, Float64, 9}
     C::Mat{2, 3, Float64, 6}
     r::Vec{2, Float64}
-    μ::Float64
+    μ::Vector{Vector{Float64}}
     index::Int
     matindex::Int
 end
@@ -57,7 +57,8 @@ function initialize(INPUT::Input{:Root})
         @. pointstate.matindex = matindex
         PoingrSimulator.initialize_stress!(pointstate.σ, mat, g)
         if !isempty(rigidbodies)
-            @. pointstate.μ = mat.friction_with_rigidbody
+            @assert length(rigidbodies) == length(mat.friction_with_rigidbodies)
+            @. pointstate.μ = $Ref(mat.friction_with_rigidbodies)
         end
     end
     t = 0.0

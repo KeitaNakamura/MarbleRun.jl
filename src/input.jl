@@ -107,6 +107,12 @@ end
 #############
 
 function preprocess_SoilLayer!(SoilLayer::Vector)
+    for layer in SoilLayer
+        if haskey(layer, "friction_with_rigidbodies")
+            wrap(x)::Vector = (x′ = eval_convert.(Float64, x); x′ isa Number ? [x′] : x′)
+            layer["friction_with_rigidbodies"] = Ref(map(wrap, layer["friction_with_rigidbodies"])) # handle friction coefficients with polygon object
+        end
+    end
 end
 
 ############
@@ -119,7 +125,10 @@ function preprocess_Material!(Material::Vector)
     for mat in Material
         ifhaskey_eval_convert!(Function,               mat, "region")
         ifhaskey_eval_convert!(Type{<: MaterialModel}, mat, "type")
-        ifhaskey_eval_convert!(Float64,                mat, "friction_with_rigidbody")
+        if haskey(mat, "friction_with_rigidbodies")
+            wrap(x)::Vector = (x′ = eval_convert.(Float64, x); x′ isa Number ? [x′] : x′)
+            mat["friction_with_rigidbodies"] = Ref(map(wrap, mat["friction_with_rigidbodies"])) # handle friction coefficients with polygon object
+        end
     end
 end
 

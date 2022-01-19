@@ -31,7 +31,7 @@ density = 1.0e3       # (kg/m3)
 pressure = 100.0      # (N/m2)   <10.0>
 sound_of_speed = 1.0  # (m/s)
 viscosity = 0.01      # (Pa⋅s)
-friction_with_rigidbody = "Inf" # no-slip boundary
+friction_with_rigidbodies = ["Inf"] # no-slip boundary
 [Material.Initialization]
 type = "uniform"
 mean_stress = -100.0 # (N/m2)   <-10.0>

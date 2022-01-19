@@ -29,7 +29,7 @@ struct PointState
     ∇v::SecondOrderTensor{3, Float64, 9}
     C::Mat{2, 3, Float64, 6}
     r::Vec{2, Float64}
-    μ::Vector{Float64}
+    μ::Vector{Vector{Float64}}
     index::Int
     matindex::Int
 end
@@ -96,11 +96,8 @@ function initialize(INPUT::Input{:Root})
                                  0.0 σ_y 0.0
                                  0.0 0.0 σ_x]) |> symmetric
         pointstate.m[p] = ρ0 * pointstate.V[p]
-        if layer.friction_with_rigidbody isa Tuple
-            pointstate.μ[p] = collect(layer.friction_with_rigidbody)
-        else
-            pointstate.μ[p] = [layer.friction_with_rigidbody]
-        end
+        @assert length(layer.friction_with_rigidbodies) == 1
+        pointstate.μ[p] = layer.friction_with_rigidbodies
     end
     @. pointstate.b = Vec(0.0, -g)
 

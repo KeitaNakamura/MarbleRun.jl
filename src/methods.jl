@@ -31,10 +31,10 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt)
-    masks = map(rigidbodies) do rigidbody
+    masks = map(enumerate(rigidbodies)) do (i, rigidbody)
         α = INPUT.Advanced.contact_threshold_scale
         ξ = INPUT.Advanced.contact_penalty_parameter
-        P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, ξ)
+        P2G_contact!(grid, pointstate, cache, dt, rigidbody, i, α, ξ)
     end
 
     # Boundary conditions
@@ -75,7 +75,7 @@ function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
     default_point_to_grid!(grid, pointstate, cache, dt)
 end
 
-function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, α::Real, ξ::Real)
+function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, rigidbody_index::Int, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
     point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
         @_inline_meta
@@ -86,12 +86,12 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         vₚ = pointstate.v[p]
         m = N * mₚ
         d₀ = α * mean(pointstate.r[p]) # threshold
-        if length(pointstate.μ[p]) == 1
-            μ = only(pointstate.μ[p])
+        if length(pointstate.μ[p][rigidbody_index]) == 1
+            μ = only(pointstate.μ[p][rigidbody_index])
             dₚ = distance(rigidbody, xₚ, d₀)
         else
             # friction is interpolated
-            dₚ, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p])
+            dₚ, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p][rigidbody_index])
         end
         d = d₀*normalize(dₚ) - dₚ
         vᵣ = vₚ - velocityat(rigidbody, xₚ)

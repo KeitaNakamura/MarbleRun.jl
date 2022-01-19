@@ -29,7 +29,7 @@ cohesion = 10e3 # (N/m2)
 friction_angle = 0.0   # (degree)
 dilatancy_angle = 0.0 # (degree)
 tension_cutoff = false
-friction_with_rigidbody = 0.0
+friction_with_rigidbodies = [0.0]
 
 [[RigidBody]]
 type = "Polygon"
