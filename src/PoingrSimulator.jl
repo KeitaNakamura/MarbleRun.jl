@@ -54,9 +54,9 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
     # use eval for error related with `Injection.main_output`: "method too new to be called from this world context."
     # don't know the mechanism
     if haskey(INPUT.General, :restart)
-        file = joinpath(INPUT.Output.original_directory, "snapshots.jld2")
-        num = string(INPUT.General.restart)
-        data = load(file)[num]
+        snapshots = load(joinpath(INPUT.Output.original_directory, "snapshots.jld2"))
+        index = string(INPUT.General.restart)
+        data = snapshots[index]
         @eval $INPUT.General.type.main($INPUT, $data...)
     else
         @eval $INPUT.General.type.main($INPUT, $INPUT.General.type.initialize($INPUT)...)
