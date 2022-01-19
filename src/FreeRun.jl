@@ -5,7 +5,7 @@ using PoingrSimulator: Input, getoftype
 using Poingr
 using GeometricObjects
 
-using JLD2
+using Serialization
 
 struct NodeState
     m::Float64
@@ -88,8 +88,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
         paraview_collection(vtk_save, outputs["paraview_file"])
     end
     if INPUT.Output.snapshots
-        outputs["snapshots_file"] = joinpath(output_dir, "snapshots.jld2")
-        jldopen(identity, outputs["snapshots_file"], "w"; compress = true)
+        mkpath(joinpath(output_dir, "snapshots"))
     end
     if isdefined(INPUT.Injection, :main_output)
         INPUT.Injection.main_output_initialize((;
@@ -156,9 +155,10 @@ function writeoutput(
     end
 
     if INPUT.Output.snapshots
-        jldopen(outputs["snapshots_file"], "a"; compress = true) do file
-            file[string(output_index)] = (; grid, pointstate, rigidbodies, t)
-        end
+        serialize(
+            joinpath(INPUT.Output.directory, "snapshots", "snapshot$output_index"),
+            (; grid, pointstate, rigidbodies, t)
+        )
     end
 
     if isdefined(INPUT.Injection, :main_output)

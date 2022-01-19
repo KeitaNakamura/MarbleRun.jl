@@ -3,7 +3,7 @@ using Test
 
 using LinearAlgebra # norm
 using CSV           # history file
-using JLD2          # snapshots
+using Serialization # snapshots
 
 # vtk
 using ReadVTK
@@ -57,11 +57,12 @@ function check_results(inputtoml::String)
         # snapshots file
         if !fix_results && !haskey(INPUT.General, :restart)
             nsteps = floor(Int, INPUT.General.total_time / INPUT.Output.interval)
-            jldopen(joinpath(output_dir, "snapshots.jld2"), "r") do file
-                @test keys(file) == string.(0:nsteps)
-                for i in keys(file)
-                    @test file[i] isa NamedTuple
-                end
+            root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
+            count = 0
+            for file in sort(files, lt = natural)
+                @test file == "snapshot$count"
+                @test deserialize(joinpath(root, file)) isa NamedTuple
+                count += 1
             end
         end
 

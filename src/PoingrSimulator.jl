@@ -3,7 +3,7 @@ module PoingrSimulator
 using Poingr
 using GeometricObjects
 using TOML
-using JLD2
+using Serialization
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
@@ -54,9 +54,8 @@ function main(proj_dir::AbstractString, inputtoml::AbstractString, Injection::Mo
     # use eval for error related with `Injection.main_output`: "method too new to be called from this world context."
     # don't know the mechanism
     if haskey(INPUT.General, :restart)
-        snapshots = load(joinpath(INPUT.Output.original_directory, "snapshots.jld2"))
         index = string(INPUT.General.restart)
-        data = snapshots[index]
+        data = deserialize(joinpath(INPUT.Output.original_directory, "snapshots", "snapshot$index"))
         @eval $INPUT.General.type.main($INPUT, $data...)
     else
         @eval $INPUT.General.type.main($INPUT, $INPUT.General.type.initialize($INPUT)...)

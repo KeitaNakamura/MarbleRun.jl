@@ -5,7 +5,7 @@ using PoingrSimulator: Input
 using Poingr
 using GeometricObjects
 
-using JLD2
+using Serialization
 
 struct NodeState
     m::Float64
@@ -139,8 +139,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
         end
     end
     if INPUT.Output.snapshots
-        outputs["snapshots_file"] = joinpath(output_dir, "snapshots.jld2")
-        jldopen(identity, outputs["snapshots_file"], "w"; compress = true)
+        mkpath(joinpath(output_dir, "snapshots"))
     end
     if isdefined(INPUT.Injection, :main_output)
         INPUT.Injection.main_output_initialize((;
@@ -219,9 +218,10 @@ function writeoutput(
     end
 
     if INPUT.Output.snapshots
-        jldopen(outputs["snapshots_file"], "a"; compress = true) do file
-            file[string(output_index)] = (; grid, pointstate, rigidbody, rigidbody0, t)
-        end
+        serialize(
+            joinpath(INPUT.Output.directory, "snapshots", "snapshot$output_index"),
+            (; grid, pointstate, rigidbody, rigidbody0, t)
+        )
     end
 
     if isdefined(INPUT.Injection, :main_output)
