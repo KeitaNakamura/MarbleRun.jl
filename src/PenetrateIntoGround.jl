@@ -9,6 +9,7 @@ using Serialization
 
 struct NodeState
     m::Float64
+    m′::Float64
     v::Vec{2, Float64}
     v_n::Vec{2, Float64}
     m_contacted::Float64
@@ -29,7 +30,6 @@ struct PointState
     ∇v::SecondOrderTensor{3, Float64, 9}
     C::Mat{2, 3, Float64, 6}
     r::Vec{2, Float64}
-    μ::Vector{Float64}
     index::Int
     matindex::Int
 end
@@ -38,6 +38,7 @@ function preprocess_input!(dict::Dict)
     dict["Material"] = dict["SoilLayer"]
     for mat in dict["Material"]
         mat["type"] = DruckerPrager
+        @assert length(mat["friction_with_rigidbodies"]) == 1
     end
     dict["BoundaryCondition"] = Dict{String, Any}("bottom" => Inf)
     for rigidbody in dict["RigidBody"]
@@ -96,11 +97,6 @@ function initialize(INPUT::Input{:Root})
                                  0.0 σ_y 0.0
                                  0.0 0.0 σ_x]) |> symmetric
         pointstate.m[p] = ρ0 * pointstate.V[p]
-        if layer.friction_with_rigidbody isa Tuple
-            pointstate.μ[p] = collect(layer.friction_with_rigidbody)
-        else
-            pointstate.μ[p] = [layer.friction_with_rigidbody]
-        end
     end
     @. pointstate.b = Vec(0.0, -g)
 

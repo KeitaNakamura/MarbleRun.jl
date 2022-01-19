@@ -42,10 +42,22 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt)
-    masks = map(rigidbodies) do rigidbody
+    for (i, rigidbody) in enumerate(rigidbodies)
         α = INPUT.Advanced.contact_threshold_scale
         ξ = INPUT.Advanced.contact_penalty_parameter
-        P2G_contact!(grid, pointstate, cache, dt, rigidbody, α, ξ)
+        mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, i, materials, α, ξ)
+        # Update rigid bodies
+        input = INPUT.RigidBody[i]
+        b = getoftype(input, :body_force, zero(Vec{2}))
+        if getoftype(input, :control, true) # rigid bodies don't move freely by default
+            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+        else
+            G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+            inds = findall(mask)
+            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+            Fc += rigidbody.m * Vec(0,-g) + b
+            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+        end
     end
 
     # Boundary conditions
@@ -56,26 +68,6 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Grid-to-point transfer
     G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
-    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
-        input = INPUT.RigidBody[i]
-        if !getoftype(input, :control, true) # rigid bodies don't move freely by default
-            G2P_contact!(pointstate, grid, cache, rigidbody, mask)
-        end
-    end
-
-    # Update rigid bodies
-    for (i, (rigidbody, mask)) in enumerate(zip(rigidbodies, masks))
-        input = INPUT.RigidBody[i]
-        b = getoftype(input, :body_force, zero(Vec{2}))
-        if getoftype(input, :control, true) # rigid bodies don't move freely by default
-            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
-        else
-            inds = findall(mask)
-            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
-            Fc += rigidbody.m * Vec(0,-g) + b
-            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
-        end
-    end
 end
 
 ##########################
@@ -86,8 +78,9 @@ function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
     default_point_to_grid!(grid, pointstate, cache, dt)
 end
 
-function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, α::Real, ξ::Real)
+function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, rigidbody_index::Int, materials, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
+    !any(mask) && return mask
     point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
         @_inline_meta
         @_propagate_inbounds_meta
@@ -97,22 +90,24 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         vₚ = pointstate.v[p]
         m = N * mₚ
         d₀ = α * mean(pointstate.r[p]) # threshold
-        if length(pointstate.μ[p]) == 1
-            μ = only(pointstate.μ[p])
+        mat = materials[pointstate.matindex[p]]
+        coef = mat.friction_with_rigidbodies[rigidbody_index]
+        if length(coef) == 1
+            μ = only(coef)
             dₚ = distance(rigidbody, xₚ, d₀)
         else
             # friction is interpolated
-            dₚ, μ = distance(rigidbody, xₚ, d₀, pointstate.μ[p])
+            dₚ, μ = distance(rigidbody, xₚ, d₀, coef)
         end
         d = d₀*normalize(dₚ) - dₚ
         vᵣ = vₚ - velocityat(rigidbody, xₚ)
         m*d, m*vᵣ, m*μ, m
     end
-    mᵢ = @dot_lazy grid.state.m / (grid.state.m/rigidbody.m + 1)
+    @dot_threads grid.state.m′ = grid.state.m / (grid.state.m/rigidbody.m + 1)
     @dot_threads grid.state.d /= grid.state.m
     @dot_threads grid.state.vᵣ /= grid.state.m_contacted
     @dot_threads grid.state.μ /= grid.state.m_contacted
-    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m, dt, grid.state.μ, ξ)
+    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m′, dt, grid.state.μ, ξ)
     @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
     mask
 end
