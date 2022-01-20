@@ -114,9 +114,11 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
 
     println("Particles: ", length(pointstate))
 
-    # General
+    # General/Output
     dx = INPUT.General.grid_space
-    total_time = INPUT.General.total_time
+    t_stop = INPUT.General.total_time
+    t_step = INPUT.Output.interval
+    t_start = (0.0:t_step:t_stop)[searchsortedlast(0.0:t_step:t_stop, t)]
 
     # SoilLayer
     matmodels = map(PoingrSimulator.create_materialmodel, INPUT.SoilLayer)
@@ -157,7 +159,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
     ##################
 
     cache = MPCache(grid, pointstate.x)
-    logger = Logger(0.0:INPUT.Output.interval:total_time; INPUT.General.show_progress)
+    logger = Logger(t_start:t_step:t_stop; INPUT.General.show_progress)
     update!(logger, t)
     writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
 
