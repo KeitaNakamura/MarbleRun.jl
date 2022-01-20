@@ -1,7 +1,7 @@
 name = "PoingrSimulator"
 uuid = "01eb3d57-6371-4320-8e81-081701a85da1"
 authors = ["Keita Nakamura <keita.nakamura.1109@gmail.com>"]
-version = "0.5.1"
+version = "0.5.2"
 
 [deps]
 GeometricObjects = "f167b195-1c3d-409a-8dd6-02cc02a656c6"
