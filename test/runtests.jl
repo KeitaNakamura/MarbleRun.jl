@@ -86,6 +86,12 @@ function check_results(inputtoml::String)
 end
 
 @testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun")
+    # clean up  first
+    for (root, dirs, files) in collect(walkdir(module_name))
+        for dir in dirs
+            endswith(dir, ".tmp") && rm(joinpath(root, dir); recursive = true)
+        end
+    end
     for (root, dirs, files) in walkdir(module_name)
         for file in files
             path = joinpath(root, file)
