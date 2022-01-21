@@ -118,7 +118,9 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
         PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, INPUT, dt)
         update!(logger, t += dt)
         if islogpoint(logger)
-            Poingr.reorder_pointstate!(pointstate, cache)
+            if getoftype(INPUT.Advanced, :reorder_pointstate, false)
+                Poingr.reorder_pointstate!(pointstate, cache)
+            end
             writeoutput(outputs, INPUT, grid, pointstate, rigidbodies, t, logindex(logger))
         end
     end

@@ -1,7 +1,7 @@
 module PenetrateIntoGround
 
 using PoingrSimulator
-using PoingrSimulator: Input
+using PoingrSimulator: Input, getoftype
 using Poingr
 using GeometricObjects
 
@@ -170,7 +170,9 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
         PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT, dt)
         update!(logger, t += dt)
         if islogpoint(logger)
-            Poingr.reorder_pointstate!(pointstate, cache)
+            if getoftype(INPUT.Advanced, :reorder_pointstate, false)
+                Poingr.reorder_pointstate!(pointstate, cache)
+            end
             writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
         end
     end

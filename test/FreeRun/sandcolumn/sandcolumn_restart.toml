@@ -40,3 +40,4 @@ reference_height = 0.3
 [Advanced]
 CFL = 1.0
 npoints_in_cell = 2 # in each dimension
+reorder_pointstate = true

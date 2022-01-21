@@ -41,3 +41,4 @@ CFL = 0.5
 contact_threshold_scale = 1.5
 contact_penalty_parameter = 0.0
 npoints_in_cell = 2 # in each dimension
+reorder_pointstate = true
