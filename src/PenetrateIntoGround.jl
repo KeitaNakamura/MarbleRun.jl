@@ -164,7 +164,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
     writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
 
     while !isfinised(logger, t)
-        dt = INPUT.Advanced.CFL * minimum(pointstate) do pt
+        dt = INPUT.Advanced.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
         end
         PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT, dt)

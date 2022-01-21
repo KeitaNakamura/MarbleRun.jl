@@ -2,6 +2,16 @@
 # timestep #
 ############
 
+function safe_minimum(f, iter)
+    ret = typemax(f(first(iter)))
+    @inbounds @simd for x in iter
+        if !(x === NaN || x === Inf || x === -Inf)
+            ret = min(ret, f(x))
+        end
+    end
+    ret
+end
+
 function timestep(model::DruckerPrager, p, dx) # currently support only LinearElastic
     ρ = p.m / p.V
     v = norm(p.v)
