@@ -5,8 +5,9 @@
 function safe_minimum(f, iter)
     ret = typemax(f(first(iter)))
     @inbounds @simd for x in iter
-        if !(x === NaN || x === Inf || x === -Inf)
-            ret = min(ret, f(x))
+        y = f(x)
+        if !(y === NaN || y === Inf || y === -Inf)
+            ret = min(ret, y)
         end
     end
     ret
