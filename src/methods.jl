@@ -6,7 +6,7 @@ function safe_minimum(f, iter)
     ret = typemax(f(first(iter)))
     @inbounds @simd for x in iter
         y = f(x)
-        if !(y === NaN || y === Inf || y === -Inf)
+        if !(isnan(y) || isinf(y))
             ret = min(ret, y)
         end
     end
@@ -17,7 +17,7 @@ function timestep(model::DruckerPrager, p, dx) # currently support only LinearEl
     ρ = p.m / p.V
     v = norm(p.v)
     vc = matcalc(Val(:sound_speed), model.elastic.K, model.elastic.G, ρ)
-    dx / (vc + v)
+    dx / (vc + min(v, vc)) # set limit of `v` as `vc` to prevent using too high velocity
 end
 
 # https://doi.org/10.1016/j.ijnonlinmec.2011.10.007
