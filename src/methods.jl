@@ -38,7 +38,17 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     materials = INPUT.Material
     matmodels = map(create_materialmodel, materials)
 
-    update!(cache, grid, pointstate)
+    if isempty(rigidbodies)
+        update!(cache, grid, pointstate)
+    else
+        spatmasks = [falses(size(grid)) for i in 1:Threads.nthreads()]
+        Threads.@threads for rigidbody in rigidbodies
+            mask = spatmasks[Threads.threadid()]
+            broadcast!(in(rigidbody), mask, grid)
+        end
+        exclude = broadcast(|, spatmasks...)
+        update!(cache, grid, pointstate; exclude)
+    end
 
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt)
