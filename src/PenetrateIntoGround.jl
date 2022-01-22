@@ -118,7 +118,9 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
     dx = INPUT.General.grid_space
     t_stop = INPUT.General.total_time
     t_step = INPUT.Output.interval
-    t_start = (0.0:t_step:t_stop)[searchsortedlast(0.0:t_step:t_stop, t)]
+    logoffset = searchsortedlast(0.0:t_step:t_stop, t)
+    t_start = (0.0:t_step:t_stop)[logoffset]
+    logoffset -= 1
 
     # SoilLayer
     matmodels = map(PoingrSimulator.create_materialmodel, INPUT.SoilLayer)
@@ -161,7 +163,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
     cache = MPCache(grid, pointstate.x)
     logger = Logger(t_start:t_step:t_stop; INPUT.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
+    writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logoffset + logindex(logger))
 
     while !isfinised(logger, t)
         dt = INPUT.Advanced.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
@@ -173,7 +175,7 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
             if getoftype(INPUT.Advanced, :reorder_pointstate, false)
                 Poingr.reorder_pointstate!(pointstate, cache)
             end
-            writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
+            writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logoffset + logindex(logger))
         end
     end
 end
