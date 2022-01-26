@@ -71,9 +71,8 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     end
 
     # Boundary conditions
-    boundary_contacts = create_boundary_contacts(INPUT.BoundaryCondition)
     for bd in eachboundary(grid)
-        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, boundary_contacts)
+        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, INPUT.BoundaryCondition)
     end
 
     # Grid-to-point transfer
@@ -204,12 +203,12 @@ end
 # boundary condition #
 ######################
 
-function boundary_velocity(v::Vec{2}, n::Vec{2}, boundary_contacts)
+function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input{:BoundaryCondition})
     n == Vec(-1,  0) && (side = :left)
     n == Vec( 1,  0) && (side = :right)
     n == Vec( 0, -1) && (side = :bottom)
     n == Vec( 0,  1) && (side = :top)
-    contact = boundary_contacts[side]
+    contact = bc[side]
     v + contact(v, n)
 end
 

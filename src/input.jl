@@ -82,24 +82,10 @@ end
 #####################
 
 function preprocess_BoundaryCondition!(BoundaryCondition::Dict)
-end
-
-function create_boundary_contacts(BoundaryCondition::Input{:BoundaryCondition})
-    dict = Dict{Symbol, Contact}()
-    for side in (:left, :right, :bottom, :top)
-        if haskey(BoundaryCondition, side)
-            coef = eval_convert(Float64, BoundaryCondition[side]) # use `eval_convert` for "Inf"
-            if isinf(coef)
-                contact = Contact(:sticky)
-            else
-                contact = Contact(:friction, coef)
-            end
-        else
-            contact = Contact(:slip)
-        end
-        dict[side] = contact
+    for side in ("left", "right", "bottom", "top")
+        coef = eval_convert(Float64, get(BoundaryCondition, side, 0.0)) # use `eval_convert` for "Inf"
+        BoundaryCondition[side] = Contact(:friction, coef) # friction can also handle sticky and slip
     end
-    dict
 end
 
 #############
