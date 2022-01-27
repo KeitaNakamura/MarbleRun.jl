@@ -40,12 +40,13 @@ function preprocess_input!(dict::Dict)
         mat["type"] = DruckerPrager
         @assert length(mat["friction_with_rigidbodies"]) == 1
     end
-    dict["BoundaryCondition"] = Dict{String, Any}(
-        "left"   => Contact(:slip),
-        "right"  => Contact(:slip),
-        "bottom" => Contact(:sticky),
-        "top"    => Contact(:slip),
-    )
+    bc = get!(dict, "BoundaryCondition", Dict{String, Any}())
+    for (side, contact) in ("left"   => Contact(:slip),
+                            "right"  => Contact(:slip),
+                            "bottom" => Contact(:sticky),
+                            "top"    => Contact(:slip))
+        get!(bc, side, contact)
+    end
     for rigidbody in dict["RigidBody"]
         rigidbody["density"] = Inf # for calculation of effective mass in collision
     end
