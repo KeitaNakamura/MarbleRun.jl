@@ -10,11 +10,11 @@ gravity    = 0.0    # (m/s2)
 total_time = 0.01   # (sec)   <1.0>
 show_progress = false
 
-[BoundaryCondition] # slip -> 0, friction -> friction_coefficient, sticky -> Inf
-left = "Inf"
-right = "Inf"
-top = "Inf"
-bottom = "Inf"
+[BoundaryCondition] # slip -> 0, friction -> friction_coefficient, sticky -> inf
+left = inf
+right = inf
+top = inf
+bottom = inf
 
 [Output]
 interval = 0.002 # (sec)  <0.01>
@@ -31,7 +31,7 @@ density = 1.0e3       # (kg/m3)
 pressure = 100.0      # (N/m2)   <10.0>
 sound_of_speed = 1.0  # (m/s)
 viscosity = 0.01      # (Pa⋅s)
-friction_with_rigidbodies = ["Inf"] # no-slip boundary
+friction_with_rigidbodies = [inf] # no-slip boundary
 [Material.Initialization]
 type = "uniform"
 mean_stress = -100.0 # (N/m2)   <-10.0>

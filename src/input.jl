@@ -20,6 +20,7 @@ Base.merge(tup::NamedTuple, input::Input) = merge(tup, getfield(input, :fields))
 Base.show(io::IO, input::Input{name}) where {name} = print(io, "Input{:$name}", getfield(input, :fields))
 
 getoftype(input::Input, name::Symbol, default)::typeof(default) = oftype(default, get(getfield(input, :fields), name, default))
+getoftype(input::Dict, name, default)::typeof(default) = oftype(default, get(input, name, default))
 
 ##############
 # Input TOML #
@@ -83,7 +84,7 @@ end
 
 function preprocess_BoundaryCondition!(BoundaryCondition::Dict)
     for side in ("left", "right", "bottom", "top")
-        coef = eval_convert(Float64, get(BoundaryCondition, side, 0.0)) # use `eval_convert` for "Inf"
+        coef = getoftype(BoundaryCondition, side, 0.0)
         BoundaryCondition[side] = Contact(:friction, coef) # friction can also handle sticky and slip
     end
 end
@@ -95,7 +96,7 @@ end
 function preprocess_SoilLayer!(SoilLayer::Vector)
     for layer in SoilLayer
         if haskey(layer, "friction_with_rigidbodies")
-            wrap(x)::Vector = (x′ = eval_convert.(Float64, x); x′ isa Number ? [x′] : x′)
+            wrap(x)::Vector{Float64} = x isa Number ? [x] : x
             layer["friction_with_rigidbodies"] = map(wrap, layer["friction_with_rigidbodies"]) # handle friction coefficients with polygon object
         end
     end
@@ -112,7 +113,7 @@ function preprocess_Material!(Material::Vector)
         ifhaskey_eval_convert!(Function,               mat, "region")
         ifhaskey_eval_convert!(Type{<: MaterialModel}, mat, "type")
         if haskey(mat, "friction_with_rigidbodies")
-            wrap(x)::Vector = (x′ = eval_convert.(Float64, x); x′ isa Number ? [x′] : x′)
+            wrap(x)::Vector{Float64} = x isa Number ? [x] : x
             mat["friction_with_rigidbodies"] = map(wrap, mat["friction_with_rigidbodies"]) # handle friction coefficients with polygon object
         end
     end
