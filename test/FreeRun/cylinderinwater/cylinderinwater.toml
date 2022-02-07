@@ -7,17 +7,20 @@ coordinate_system = "plane_strain" # plane_strain
 domain = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.2e-3 # (m)     <0.08e-3>
 gravity    = 0.0    # (m/s2)
-total_time = 0.01   # (sec)   <1.0>
 show_progress = false
 
-[BoundaryCondition] # slip -> 0, friction -> friction_coefficient, sticky -> inf
+[Phase]
+time_stop = 0.01   # (sec)   <1.0>
+CFL = 0.5
+
+[BoundaryCondition] # slip -> 0, friction -> 0 < coef < inf, sticky -> inf
 left = inf
 right = inf
 top = inf
 bottom = inf
 
 [Output]
-interval = 0.002 # (sec)  <0.01>
+time_interval = 0.002 # (sec)  <0.01>
 directory = "output.tmp"
 snapshots = true
 paraview = true
@@ -25,27 +28,26 @@ paraview_grid = true
 copy_inputfile = true
 
 [[Material]]
-type = "NewtonianFluid"
 region = "(x,y) -> true"
 density = 1.0e3       # (kg/m3)
-pressure = 100.0      # (N/m2)   <10.0>
-sound_of_speed = 1.0  # (m/s)
-viscosity = 0.01      # (Pa⋅s)
 friction_with_rigidbodies = [inf] # no-slip boundary
-[Material.Initialization]
-type = "uniform"
+[Material.model.NewtonianFluid]
+pressure_ref = 100.0      # (N/m2)   <10.0>
+density_ref = 1.0e3       # (kg/m3)
+speed_of_sound = 1.0  # (m/s)
+viscosity = 0.01      # (Pa⋅s)
+[Material.init.Uniform]
 mean_stress = -100.0 # (N/m2)   <-10.0>
 
 [[RigidBody]]
-type = "Circle"
-center = [0.01, 0.04]
-radius = 1.25e-3 # (m)
 density = 1.25e3 # (kg/m3)
 control = false
 body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
+[RigidBody.model.Circle]
+centroid = [0.01, 0.04]
+radius = 1.25e-3 # (m)
 
 [Advanced]
-CFL = 0.5
 npoints_in_cell = 2 # in each dimension  <4>
 contact_threshold_scale = 1.0
 contact_penalty_parameter = 0.0

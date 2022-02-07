@@ -29,14 +29,80 @@ function timestep(model::NewtonianFluid, p, dx)
     min(dx/(vc+v), dx^2/ν)
 end
 
+##########################################
+# generate_pointstate/initialize_stress! #
+##########################################
+
+# Since initializing pointstate is dependent on types of simulation,
+# `initialize!` phase should be given as argument.
+# This `initialize!` function is called on each material to perform
+# material-wise initialization.
+# After initialization, these `pointstate`s will be concatenated.
+# Then, if you have rigid bodies, the invalid points are removed.
+function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
+    # generate all pointstate first
+    Material = input.Material
+    pointstates = map(1:length(Material)) do matindex
+        material = Material[matindex]
+        pointstate′ = generate_pointstate( # call method in `Poingr`
+            material.region,
+            PointState,
+            grid;
+            n = input.Advanced.npoints_in_cell,
+        )
+        initialize!(pointstate′, matindex)
+        pointstate′
+    end
+    pointstate = first(pointstates)
+    append!(pointstate, pointstates[2:end]...)
+
+    # remove invalid pointstate
+    α = input.Advanced.contact_threshold_scale
+    !isempty(input.RigidBody) && deleteat!(
+        pointstate,
+        findall(eachindex(pointstate)) do p
+            xₚ = pointstate.x[p]
+            rₚ = pointstate.r[p]
+            any(map(x -> x.model, input.RigidBody)) do rigidbody
+                # remove pointstate which is in rigidbody or is in contact with rigidbody
+                in(xₚ, rigidbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
+            end
+        end,
+    )
+
+    pointstate
+end
+
+# This function is basically based on Material.Initialization
+function initialize_stress!(σₚ::AbstractVector, material::Input_Material, g)
+    init = material.init
+    ρ0 = material.density
+    if init isa Input_Material_init_K0
+        K0 = init.K0
+        for p in eachindex(σₚ)
+            σ_y = -ρ0 * g * init.height_ref
+            σ_x = K0 * σ_y
+            σₚ[p] = (@Mat [σ_x 0.0 0.0
+                           0.0 σ_y 0.0
+                           0.0 0.0 σ_x]) |> symmetric
+        end
+    elseif init isa Input_Material_init_Uniform
+        for p in eachindex(σₚ)
+            σₚ[p] = init.mean_stress * one(σₚ[p])
+        end
+    else
+        error("unreachable")
+    end
+end
+
 ####################
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, INPUT, dt)
-    g = INPUT.General.gravity
-    materials = INPUT.Material
-    matmodels = map(create_materialmodel, materials)
+function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase)
+    g = input.General.gravity
+    materials = input.Material
+    matmodels = map(x -> x.model, materials)
 
     if isempty(rigidbodies)
         update!(cache, grid, pointstate)
@@ -53,30 +119,32 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt)
     for (i, rigidbody) in enumerate(rigidbodies)
-        α = INPUT.Advanced.contact_threshold_scale
-        ξ = INPUT.Advanced.contact_penalty_parameter
+        α = input.Advanced.contact_threshold_scale
+        ξ = input.Advanced.contact_penalty_parameter
         mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, i, materials, α, ξ)
-        # Update rigid bodies
-        input = INPUT.RigidBody[i]
-        b = getoftype(input, :body_force, zero(Vec{2}))
-        if getoftype(input, :control, true) # rigid bodies don't move freely by default
-            GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
-        else
-            G2P_contact!(pointstate, grid, cache, rigidbody, mask)
-            inds = findall(mask)
-            Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
-            Fc += rigidbody.m * Vec(0,-g) + b
-            GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+        if phase.update_motion == true
+            # Update rigid bodies
+            input_rigidbody = input.RigidBody[i]
+            b = input_rigidbody.body_force
+            if input_rigidbody.control
+                GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+            else
+                G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+                inds = findall(mask)
+                Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+                Fc += rigidbody.m * Vec(0,-g) + b
+                GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+            end
         end
     end
 
     # Boundary conditions
     for bd in eachboundary(grid)
-        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, INPUT.BoundaryCondition)
+        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, input.BoundaryCondition)
     end
 
     # Grid-to-point transfer
-    G2P!(pointstate, grid, cache, matmodels, materials, dt) # `materials` are for densities
+    G2P!(pointstate, grid, cache, matmodels, materials, dt, phase) # `materials` are for densities
 end
 
 ##########################
@@ -134,7 +202,7 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: InputMaterial}, dt::Real)
+function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: Union{Input_Material, Input_SoilLayer}}, dt::Real, phase::Input_Phase)
     default_grid_to_point!(pointstate, grid, cache, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
@@ -147,6 +215,11 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
         pointstate.σ[p] = σ
         pointstate.ϵ[p] += dϵ
         pointstate.V[p] = V0 * J
+        if phase.update_motion == false
+            pointstate.x[p] -= pointstate.v[p] * dt
+            pointstate.v[p] = zero(pointstate.v[p])
+            pointstate.∇v[p] = zero(pointstate.∇v[p])
+        end
     end
 end
 
@@ -203,12 +276,12 @@ end
 # boundary condition #
 ######################
 
-function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input{:BoundaryCondition})
+function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
     n == Vec(-1,  0) && (side = :left)
     n == Vec( 1,  0) && (side = :right)
     n == Vec( 0, -1) && (side = :bottom)
     n == Vec( 0,  1) && (side = :top)
-    contact = bc[side]
+    contact = getproperty(bc, side)
     v + contact(v, n)
 end
 

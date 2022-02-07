@@ -1,264 +1,408 @@
-struct Input{name, Tup <: NamedTuple}
-    fields::Tup
+using Poingr
+using GeometricObjects
+using TOML
+
+function parse_input(str::AbstractString; project = ".")
+    input = convert_input(TOMLInput(TOML.parse(str)))
+    input.project = project
+    input.Output.directory = joinpath(input.project, input.Output.directory)
+    input.General.type.preprocess_input!(input)
+    input
 end
-Input{name}(fields::NamedTuple) where {name} = Input{name, typeof(fields)}(fields)
-Input{name}(; kwargs...) where {name} = Input{name}((; kwargs...))
+parse_inputfile(path::AbstractString) = parse_input(read(path, String); project = dirname(path))
 
-Base.propertynames(input::Input) = propertynames(getfield(input, :fields))
-Base.getproperty(input::Input, name::Symbol) = getproperty(getfield(input, :fields), name)
+abstract type TOMLTable end
 
-Base.length(input::Input) = length(getfield(input, :fields))
-Base.getindex(input::Input, name) = getindex(getfield(input, :fields), name)
-Base.iterate(input::Input) = iterate(getfield(input, :fields))
-Base.iterate(input::Input, state) = iterate(getfield(input, :fields), state)
-
-Base.get(input::Input, name::Symbol, default) = get(getfield(input, :fields), name, default)
-Base.haskey(input::Input, name::Symbol) = haskey(getfield(input, :fields), name)
-Base.keys(input::Input) = keys(getfield(input, :fields))
-Base.values(input::Input) = values(getfield(input, :fields))
-Base.merge(tup::NamedTuple, input::Input) = merge(tup, getfield(input, :fields))
-Base.show(io::IO, input::Input{name}) where {name} = print(io, "Input{:$name}", getfield(input, :fields))
-
-getoftype(input::Input, name::Symbol, default)::typeof(default) = oftype(default, get(getfield(input, :fields), name, default))
-getoftype(input::Dict, name, default)::typeof(default) = oftype(default, get(input, name, default))
-
-##############
-# Input TOML #
-##############
-
-_parse_input(name, x) = x
-_parse_input(name, x::Base.RefValue) = x[]
-_parse_input(name, x::Vector) = first(x) isa Dict ? _parse_input.(name, x) : (x...,) # try vector => tuple except for table
-_parse_input(name, x::Dict) = Input{name}(; (Symbol(key) => _parse_input(Symbol(key), value) for (key, value) in x)...)
-
-function parse_input(x::Dict)
-    for section in keys(x)
-        preprocess! = Symbol(:preprocess_, section, :!)
-        isdefined(@__MODULE__, preprocess!) && eval(preprocess!)(x[section])
-    end
-    if haskey(x["General"], "type")
-        x["General"]["type"].preprocess_input!(x)
-    end
-    _parse_input(:Root, x)
+struct EvalString{T}
+    content::T
 end
+Base.convert(::Type{EvalString{T}}, x::String) where {T} = EvalString{T}(eval(Meta.parse(x)))
+convert_input(x::EvalString) = x.content
 
-parse_inputfile(path::AbstractString) = parse_input(TOML.parsefile(path))
-parse_inputstring(str::AbstractString) = parse_input(TOML.parse(str))
+struct ToVec
+    content::Vector{Float64}
+end
+Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
+convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
-
-# helper functions for preprocess
-function eval_convert(::Type{T}, str::String)::T where {T}
-    convert(T, eval(Meta.parse(str)))
-end
-function eval_convert(::Type{T}, val)::T where {T}
-    convert(T, val)
-end
-function ifhaskey_eval_convert!(::Type{T}, dict::Dict, name::String) where {T}
-    if haskey(dict, name)
-        dict[name] = eval_convert(T, dict[name])
-    end
-end
+_undefkey(s) = throw(UndefKeywordError(s))
 
 ###########
 # General #
 ###########
 
-function preprocess_General!(General::Dict)
-    ifhaskey_eval_convert!(Module, General, "type")
+Base.@kwdef mutable struct TOMLInput_General <: TOMLTable
+    type              :: EvalString{Module}
+    coordinate_system :: String
+    domain            :: Vector{Vector{Float64}}
+    grid_space        :: Float64
+    gravity           :: Float64
+    show_progress     :: Bool = true
+end
 
-    if haskey(General, "coordinate_system")
-        coordinate_system = General["coordinate_system"]
-        if coordinate_system == "plane_strain"
-            General["coordinate_system"] = PlaneStrain()
-        elseif coordinate_system == "axisymmetric"
-            General["coordinate_system"] = Axisymmetric()
-        else
-            throw(ArgumentError("wrong `coordinate_system`, got \"$coordinate_system\", use \"plane_strain\" or \"axisymmetric\""))
-        end
-    end
+mutable struct Input_General{C <: CoordinateSystem}
+    type              :: Module
+    coordinate_system :: C
+    domain            :: Vector{Vector{Float64}}
+    grid_space        :: Float64
+    gravity           :: Float64
+    show_progress     :: Bool
+end
+
+function convert_input(input::TOMLInput_General, ::Val{:coordinate_system})
+    input.coordinate_system == "plane_strain" && return PlaneStrain()
+    input.coordinate_system == "axisymmetric" && return Axisymmetric()
+    throw(ArgumentError("wrong `coordinate_system`, got \"$coordinate_system\", use \"plane_strain\" or \"axisymmetric\""))
+end
+
+
+#########
+# Phase #
+#########
+
+Base.@kwdef mutable struct TOMLInput_Phase <: TOMLTable
+    time_stop     :: Float64
+    CFL           :: Float64 = 0.5
+    restart       :: String  = ""
+    update_motion :: Bool    = true
+end
+
+mutable struct Input_Phase
+    time_stop     :: Float64
+    CFL           :: Float64
+    restart       :: String
+    update_motion :: Bool
 end
 
 #####################
 # BoundaryCondition #
 #####################
 
-function preprocess_BoundaryCondition!(BoundaryCondition::Dict)
-    for side in ("left", "right", "bottom", "top")
-        coef = getoftype(BoundaryCondition, side, 0.0)
-        BoundaryCondition[side] = Contact(:friction, coef) # friction can also handle sticky and slip
-    end
+Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLTable
+    top    :: Float64 = 0.0
+    bottom :: Float64 = 0.0
+    left   :: Float64 = 0.0
+    right  :: Float64 = 0.0
 end
 
-#############
-# SoilLayer #
-#############
-
-function preprocess_SoilLayer!(SoilLayer::Vector)
-    for layer in SoilLayer
-        if haskey(layer, "friction_with_rigidbodies")
-            wrap(x)::Vector{Float64} = x isa Number ? [x] : x
-            layer["friction_with_rigidbodies"] = map(wrap, layer["friction_with_rigidbodies"]) # handle friction coefficients with polygon object
-        end
-    end
+mutable struct Input_BoundaryCondition
+    top    :: Contact
+    bottom :: Contact
+    left   :: Contact
+    right  :: Contact
 end
 
-############
-# Material #
-############
-
-const InputMaterial = Union{Input{:Material}, Input{:SoilLayer}}
-
-function preprocess_Material!(Material::Vector)
-    for mat in Material
-        ifhaskey_eval_convert!(Function,               mat, "region")
-        ifhaskey_eval_convert!(Type{<: MaterialModel}, mat, "type")
-        if haskey(mat, "friction_with_rigidbodies")
-            wrap(x)::Vector{Float64} = x isa Number ? [x] : x
-            mat["friction_with_rigidbodies"] = map(wrap, mat["friction_with_rigidbodies"]) # handle friction coefficients with polygon object
-        end
-    end
-end
-
-function create_materialmodel(mat::InputMaterial)
-    create_materialmodel(mat.type, mat)
-end
-
-function create_materialmodel(::Type{DruckerPrager}, params::InputMaterial)
-    mohr_coulomb_type = params.mohr_coulomb_type
-    E = params.youngs_modulus
-    ν = params.poissons_ratio
-    c = params.cohesion
-    ϕ = params.friction_angle
-    ψ = params.dilatancy_angle
-    tension_cutoff = params.tension_cutoff
-    elastic = LinearElastic(; E, ν)
-    DruckerPrager(elastic, mohr_coulomb_type; c, ϕ, ψ, tension_cutoff)
-end
-
-function create_materialmodel(::Type{NewtonianFluid}, params::InputMaterial)
-    ρ0 = params.density
-    P0 = params.pressure
-    c = params.sound_of_speed
-    μ = params.viscosity
-    NewtonianFluid(; ρ0, P0, c, μ)
-end
-
-# This function is basically based on Material.Initialization
-function initialize_stress!(σₚ::AbstractVector, material::Input{:Material}, g)
-    Initialization = material.Initialization
-    ρ0 = material.density
-    if Initialization.type == "K0"
-        ν = material.poissons_ratio
-        K0 = Initialization.K0 == "auto" ? ν / (1 - ν) : Initialization.K0
-        for p in eachindex(σₚ)
-            σ_y = -ρ0 * g * Initialization.reference_height
-            σ_x = K0 * σ_y
-            σₚ[p] = (@Mat [σ_x 0.0 0.0
-                           0.0 σ_y 0.0
-                           0.0 0.0 σ_x]) |> symmetric
-        end
-    elseif Initialization.type == "uniform"
-        for p in eachindex(σₚ)
-            σₚ[p] = Initialization.mean_stress * one(σₚ[p])
-        end
-    else
-        throw(ArgumentError("invalid initialization type, got $(Initialization.type)"))
-    end
-end
-
-# Since initializing pointstate is dependent on types of simulation,
-# `initialize!` phase should be given as argument.
-# This `initialize!` function is called on each material to perform
-# material-wise initialization.
-# After initialization, these `pointstate`s will be concatenated.
-# Then, if you have rigid bodies, the invalid points are removed.
-function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, INPUT::Input{:Root}) where {PointState}
-    # generate all pointstate first
-    Material = INPUT.Material
-    pointstates = map(1:length(Material)) do matindex
-        material = Material[matindex]
-        pointstate′ = generate_pointstate( # call method in `Poingr`
-            material.region,
-            PointState,
-            grid;
-            n = getoftype(INPUT.Advanced, :npoints_in_cell, 2),
-        )
-        initialize!(pointstate′, matindex)
-        pointstate′
-    end
-    pointstate = first(pointstates)
-    append!(pointstate, pointstates[2:end]...)
-
-    # remove invalid pointstate
-    α = getoftype(INPUT.Advanced, :contact_threshold_scale, 1.0)
-    !isempty(INPUT.RigidBody) && deleteat!(
-        pointstate,
-        findall(eachindex(pointstate)) do p
-            xₚ = pointstate.x[p]
-            rₚ = pointstate.r[p]
-            any(map(create_rigidbody, INPUT.RigidBody)) do rigidbody
-                # remove pointstate which is in rigidbody or is in contact with rigidbody
-                in(xₚ, rigidbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
-            end
-        end,
-    )
-
-    pointstate
-end
-
-#############
-# RigidBody #
-#############
-
-function preprocess_RigidBody!(RigidBody::Vector)
-    foreach(preprocess_RigidBody!, RigidBody)
-end
-
-function preprocess_RigidBody!(RigidBody::Dict)
-    ifhaskey_eval_convert!(Type{<: Shape}, RigidBody, "type")
-    if haskey(RigidBody, "control")
-        if RigidBody["control"] === true
-            # If the rigid body is controled, `density` should be `Inf`
-            # to set `mass` into `Inf`.
-            # This is necessary for computing effective mass.
-            RigidBody["density"] = Inf # TODO: warning?
-        end
-    end
-end
-
-function create_rigidbody(RigidBody::Input{:RigidBody})
-    create_rigidbody(RigidBody.type, RigidBody)
-end
-
-function create_rigidbody(::Type{Polygon}, params::Input{:RigidBody})
-    rigidbody = GeometricObject(Polygon(Vec{2}.(params.coordinates)...))
-    initialize_rigidbody!(rigidbody, params)
-    rigidbody
-end
-
-function create_rigidbody(::Type{Circle}, params::Input{:RigidBody})
-    rigidbody = GeometricObject(Circle(Vec(params.center), params.radius))
-    initialize_rigidbody!(rigidbody, params)
-    rigidbody
-end
-
-function initialize_rigidbody!(rigidbody::GeometricObject{dim, T}, params::Input{:RigidBody}) where {dim, T}
-    rigidbody.m = area(rigidbody) * params.density # TODO: should use `volume`?
-    rigidbody.v = getoftype(params, :velocity, zero(Vec{dim, T}))
-    rigidbody.ω = getoftype(params, :angular_velocity, zero(Vec{3, T}))
-    rigidbody
+function convert_input(input::TOMLInput_BoundaryCondition, ::Val{name}) where {name}
+    Contact(:friction, getproperty(input, name))
 end
 
 ##########
 # Output #
 ##########
 
-function preprocess_Output!(Output::Dict)
+Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
+    time_interval  :: Float64
+    directory      :: String  = "output.tmp"
+    snapshots      :: Bool    = false
+    paraview       :: Bool    = true
+    paraview_grid  :: Bool    = false
+    copy_inputfile :: Bool    = true
+    history        :: Bool    = true # only for `PenetrateIntoGround`
+end
+
+mutable struct Input_Output
+    time_interval  :: Float64
+    directory      :: String
+    snapshots      :: Bool
+    paraview       :: Bool
+    paraview_grid  :: Bool
+    copy_inputfile :: Bool
+    history        :: Bool
+end
+
+############
+# Material #
+############
+
+wrap(x)::Vector{Float64} = x isa Number ? [x] : x
+
+Base.@kwdef mutable struct TOMLInput_Material <: TOMLTable
+    region                    :: EvalString{Function}
+    density                   :: Float64
+    model                     :: MaterialModel
+    init
+    friction_with_rigidbodies :: Vector{Vector{Float64}} = []
+    function TOMLInput_Material(region, density, model, init, friction_with_rigidbodies)
+        new(region, density, model, init, map(wrap, friction_with_rigidbodies))
+    end
+end
+
+mutable struct Input_Material{Model <: MaterialModel, Init}
+    region                    :: Function
+    density                   :: Float64
+    model                     :: Model
+    init                      :: Init
+    friction_with_rigidbodies :: Vector{Vector{Float64}}
+end
+
+#############
+# SoilLayer #
+#############
+
+Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLTable
+    thickness                 :: Float64
+    density                   :: Float64
+    poissons_ratio            :: Float64                 = NaN
+    K0                        :: Float64                 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    model                     :: MaterialModel
+    friction_with_rigidbodies :: Vector{Vector{Float64}} = []
+    function TOMLInput_SoilLayer(region, density, poissons_ratio, K0, model, friction_with_rigidbodies)
+        new(region, density, poissons_ratio, K0, model, map(wrap, friction_with_rigidbodies))
+    end
+end
+
+mutable struct Input_SoilLayer{Model <: MaterialModel}
+    thickness                 :: Float64
+    density                   :: Float64
+    poissons_ratio            :: Float64
+    K0                        :: Float64
+    model                     :: Model
+    friction_with_rigidbodies :: Vector{Vector{Float64}}
+end
+
+##############################
+# (Material/SoilLayer).model #
+##############################
+
+# newtonian fluid
+
+Base.@kwdef mutable struct TOMLInput_Material_model_NewtonianFluid <: TOMLTable
+    density_ref    :: Float64
+    pressure_ref   :: Float64
+    speed_of_sound :: Float64
+    viscosity      :: Float64
+end
+
+function Base.convert(::Type{MaterialModel}, model::TOMLInput_Material_model_NewtonianFluid)
+    NewtonianFluid(;
+        ρ0 = model.density_ref,
+        P0 = model.pressure_ref,
+        c = model.speed_of_sound,
+        μ = model.viscosity,
+    )
+end
+
+# Drucker-Prager model
+
+Base.@kwdef mutable struct TOMLInput_Material_model_DruckerPrager <: TOMLTable
+    mohr_coulomb_type :: String
+    youngs_modulus    :: Float64
+    poissons_ratio    :: Float64
+    cohesion          :: Float64
+    friction_angle    :: Float64
+    dilatancy_angle   :: Float64
+    tension_cutoff    :: Float64 = 0.0
+end
+
+const TOMLInput_SoilLayer_model_DruckerPrager = TOMLInput_Material_model_DruckerPrager
+
+function Base.convert(::Type{MaterialModel}, model::TOMLInput_Material_model_DruckerPrager)
+    DruckerPrager(
+        LinearElastic(; E = model.youngs_modulus, ν = model.poissons_ratio),
+        model.mohr_coulomb_type;
+        c = model.cohesion,
+        ϕ = model.friction_angle,
+        ψ = model.dilatancy_angle,
+        tension_cutoff = model.tension_cutoff,
+    )
+end
+
+#############################
+# (Material/SoilLayer).init #
+#############################
+
+Base.@kwdef mutable struct TOMLInput_Material_init_Uniform <: TOMLTable
+    mean_stress :: Float64
+end
+
+mutable struct Input_Material_init_Uniform
+    mean_stress :: Float64
+end
+
+Base.@kwdef mutable struct TOMLInput_Material_init_K0 <: TOMLTable
+    poissons_ratio :: Float64 = NaN
+    K0             :: Float64 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    height_ref     :: Float64
+end
+
+mutable struct Input_Material_init_K0
+    poissons_ratio :: Float64
+    K0             :: Float64
+    height_ref     :: Float64
+end
+
+#############
+# RigidBody #
+#############
+
+Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
+    control          :: Bool            = true
+    density          :: Float64         = control ? Inf : _undefkey(:density)
+    velocity         :: ToVec           = nothing
+    angular_velocity :: ToVec           = nothing
+    body_force       :: ToVec           = nothing
+    model            :: GeometricObject
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}) where {dim}
+        control                     && (density = Inf)
+        isnothing(velocity)         && (velocity = zeros(dim))
+        isnothing(angular_velocity) && (angular_velocity = zeros(3))
+        isnothing(body_force)       && (body_force = zeros(dim))
+        model.m = density * area(model) # TODO: use volume for 3D
+        model.v = velocity
+        model.ω = angular_velocity
+        new(control, density, velocity, angular_velocity, body_force, model)
+    end
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model)
+        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model))
+    end
+end
+
+mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
+    control          :: Bool
+    density          :: Float64
+    velocity         :: Vec{dim, Float64}
+    angular_velocity :: Vec{3, Float64}
+    body_force       :: Vec{dim, Float64}
+    model            :: Model
+end
+
+# Polygon
+
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Polygon <: TOMLTable
+    coordinates :: Vector{Vector{Float64}}
+end
+
+function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Polygon)
+    GeometricObject(Polygon(Vec{2}.(model.coordinates)...))
+end
+
+# Circle
+
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Circle <: TOMLTable
+    centroid :: Vector{Float64}
+    radius   :: Float64
+end
+
+function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Circle)
+    GeometricObject(Circle(Vec{2}(model.centroid), model.radius))
 end
 
 ############
 # Advanced #
 ############
 
-function preprocess_Advanced!(Advanced::Dict)
+Base.@kwdef mutable struct TOMLInput_Advanced <: TOMLTable
+    npoints_in_cell           :: Int     = 2
+    contact_threshold_scale   :: Float64 = 1.0
+    contact_penalty_parameter :: Float64 = 0.0
+    reorder_pointstate        :: Bool    = false
 end
+
+mutable struct Input_Advanced
+    npoints_in_cell           :: Int
+    contact_threshold_scale   :: Float64
+    contact_penalty_parameter :: Float64
+    reorder_pointstate        :: Bool
+end
+
+
+#############
+# TOMLInput #
+#############
+
+Base.@kwdef mutable struct TOMLInput <: TOMLTable
+    project           :: String                                          = "."
+    General           :: TOMLInput_General
+    Phase             :: Union{TOMLInput_Phase, Vector{TOMLInput_Phase}}
+    BoundaryCondition :: TOMLInput_BoundaryCondition                     = TOMLInput_BoundaryCondition()
+    Output            :: TOMLInput_Output
+    SoilLayer         :: Vector{TOMLInput_SoilLayer}                     = TOMLInput_SoilLayer[]
+    Material          :: Vector{TOMLInput_Material}                      = TOMLInput_Material[]
+    RigidBody         :: Vector{TOMLInput_RigidBody}                     = TOMLInput_RigidBody[]
+    Advanced          :: TOMLInput_Advanced                              = TOMLInput_Advanced()
+    Injection         :: Module                                          = Module()
+end
+
+function TOMLInput(dict::Dict{String, Any})::TOMLInput
+    construct_input(["TOMLInput"], dict)
+end
+
+# helper functions to construct `TOMLInput`
+construct_input(current::Vector{String}, value::Any) = value
+function construct_input(current::Vector{String}, values::Vector)
+    if first(values) isa Dict{String, Any}
+        map(value -> construct_input(current, value), values)
+    else
+        values
+    end
+end
+function construct_input(current::Vector{String}, dict::Dict{String, Any})
+    maybe_struct = Symbol(join(current, "_"))
+    if isdefined(@__MODULE__, maybe_struct) && isstructtype(eval(maybe_struct))
+        T = eval(maybe_struct)
+        try
+            T(; (Symbol(key) => construct_input([current; key], value) for (key, value) in dict)...)
+        catch e
+            e isa UndefKeywordError && error(join(current, "."), ": ", e)
+            rethrow(e)
+        end
+    elseif length(dict) == 1 # the case for `model.DruckerPrager`
+        key, value = only(dict)
+        construct_input([current; key], value)
+    else
+        error(join(current, "."), " is not defined.")
+    end
+end
+
+function Base.show(io::IO, input::TOMLTable)
+    println(io, typeof(input).name.name, ":")
+    len = maximum(length ∘ string, propertynames(input))
+    list = map(propertynames(input)) do name
+        type = replace(string(fieldtype(typeof(input), name)), "PoingrSimulator." => "", "Poingr." => "")
+        string(" ", rpad(name, len), " :: ", type)
+    end
+    print(io, join(list, '\n'))
+end
+
+
+mutable struct Input{General, Phase, BoundaryCondition, Output, SoilLayer <: Vector, Material <: Vector, RigidBody <: Vector, Advanced, Injection}
+    project           :: String
+    General           :: General
+    Phase             :: Phase
+    BoundaryCondition :: BoundaryCondition
+    Output            :: Output
+    SoilLayer         :: SoilLayer
+    Material          :: Material
+    RigidBody         :: RigidBody
+    Advanced          :: Advanced
+    Injection         :: Injection
+end
+
+function convert_input(input::TOMLInput, ::Val{:Material})
+    materials = getproperty(input, :Material)
+    isempty(materials) ? convert_input(input.SoilLayer) : convert_input(materials)
+end
+
+# helper functions for convert_input
+convert_input(x) = x
+convert_input(x::Vector) = map(convert_input, x)
+@generated function convert_input(table::TOMLTable)
+    names = fieldnames(table)
+    exps = [:(convert_input(table, $(Val(name)))) for name in names]
+    T = Symbol(replace(string(table.name.name), "TOML" => ""))
+    quote
+        $T($(exps...))
+    end
+end
+
+convert_input(input::TOMLTable, ::Val{name}) where {name} = convert_input(getproperty(input, name))

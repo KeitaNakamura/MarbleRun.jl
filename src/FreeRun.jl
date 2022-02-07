@@ -1,7 +1,7 @@
 module FreeRun
 
 using PoingrSimulator
-using PoingrSimulator: Input, getoftype
+using PoingrSimulator: Input, Input_Phase
 using Poingr
 using GeometricObjects
 
@@ -35,26 +35,25 @@ struct PointState
     matindex::Int
 end
 
-function preprocess_input!(dict::Dict)
-    get!(dict, "RigidBody", Ref(GeometricObject[]))
-    for mat in dict["Material"]
-        if haskey(mat, "friction_with_rigidbodies")
-            @assert length(mat["friction_with_rigidbodies"]) == length(dict["RigidBody"])
+function preprocess_input!(input::Input)
+    for mat in input.Material
+        if hasproperty(mat, :friction_with_rigidbodies)
+            @assert length(mat.friction_with_rigidbodies) == length(input.RigidBody)
         end
     end
 end
 
-function initialize(INPUT::Input{:Root})
-    coordinate_system = INPUT.General.coordinate_system
-    (xmin, xmax), (ymin, ymax) = INPUT.General.domain
-    dx = INPUT.General.grid_space
-    g = INPUT.General.gravity
+function initialize(input::Input)
+    coordinate_system = input.General.coordinate_system
+    (xmin, xmax), (ymin, ymax) = input.General.domain
+    dx = input.General.grid_space
+    g = input.General.gravity
 
-    materials = INPUT.Material
-    rigidbodies = map(PoingrSimulator.create_rigidbody, INPUT.RigidBody)
+    materials = input.Material
+    rigidbodies = map(x -> x.model, input.RigidBody)
 
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
-    pointstate = generate_pointstate(PointState, grid, INPUT) do pointstate, matindex
+    pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
         mat = materials[matindex]
         ρ0 = mat.density
         @. pointstate.m = ρ0 * pointstate.V
@@ -64,45 +63,41 @@ function initialize(INPUT::Input{:Root})
     end
     t = 0.0
 
-    grid, pointstate, rigidbodies, t
+    t, grid, pointstate, rigidbodies
 end
 
-function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
-
-    println("Particles: ", length(pointstate))
+function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbodies)
 
     # General/Output
-    dx = INPUT.General.grid_space
-    t_stop = INPUT.General.total_time
-    t_step = INPUT.Output.interval
-    logoffset = searchsortedlast(0.0:t_step:t_stop, t)
-    t_start = (0.0:t_step:t_stop)[logoffset]
-    logoffset -= 1
+    dx = input.General.grid_space
+    t_start = t
+    t_stop = phase.time_stop
+    t_step = input.Output.time_interval
 
     # Material models
-    matmodels = map(PoingrSimulator.create_materialmodel, INPUT.Material)
+    matmodels = map(x -> x.model, input.Material)
 
     ################
     # Output files #
     ################
 
-    output_dir = INPUT.Output.directory
+    outdir = input.Output.directory
     outputs = Dict{String, Any}()
-    if INPUT.Output.paraview
-        mkpath(joinpath(output_dir, "paraview"))
-        outputs["paraview_file"] = joinpath(output_dir, "paraview", "output")
+    if input.Output.paraview
+        mkpath(joinpath(outdir, "paraview"))
+        outputs["paraview_file"] = joinpath(outdir, "paraview", "output")
         paraview_collection(vtk_save, outputs["paraview_file"])
     end
-    if INPUT.Output.snapshots
-        mkpath(joinpath(output_dir, "snapshots"))
+    if input.Output.snapshots
+        mkpath(joinpath(outdir, "snapshots"))
     end
-    if isdefined(INPUT.Injection, :main_output)
-        INPUT.Injection.main_output_initialize((;
-            INPUT,
+    if isdefined(input.Injection, :main_output)
+        input.Injection.main_output_initialize((;
+            input,
+            t,
             grid,
             pointstate,
             rigidbodies,
-            t,
         ))
     end
 
@@ -111,35 +106,37 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbodies, t)
     ##################
 
     cache = MPCache(grid, pointstate.x)
-    logger = Logger(t_start, t_stop, t_step; INPUT.General.show_progress)
+    logger = Logger(t_start, t_stop, t_step; input.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, INPUT, grid, pointstate, rigidbodies, t, logoffset + logindex(logger))
+    writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
 
     while !isfinised(logger, t)
-        dt = INPUT.Advanced.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
+        dt = phase.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
         end
-        PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, INPUT, dt)
+        PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, dt, input, phase)
         update!(logger, t += dt)
         if islogpoint(logger)
-            if getoftype(INPUT.Advanced, :reorder_pointstate, false)
+            if input.Advanced.reorder_pointstate
                 Poingr.reorder_pointstate!(pointstate, cache)
             end
-            writeoutput(outputs, INPUT, grid, pointstate, rigidbodies, t, logoffset + logindex(logger))
+            writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
         end
     end
+
+    t
 end
 
 function writeoutput(
         outputs::Dict{String, Any},
-        INPUT::Input{:Root},
+        input::Input,
         grid::Grid,
         pointstate::AbstractVector,
-        rigidbodies::Vector{<: GeometricObject},
+        rigidbodies::Vector,
         t::Real,
         output_index::Int,
     )
-    if INPUT.Output.paraview
+    if input.Output.paraview
         compress = true
         paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
@@ -150,7 +147,7 @@ function writeoutput(
                 for rigidbody in rigidbodies
                     vtk_grid(vtm, rigidbody)
                 end
-                if INPUT.Output.paraview_grid
+                if input.Output.paraview_grid
                     vtk_grid(vtm, grid; compress) do vtk
                         vtk["nodal contact force"] = vec(grid.state.fc)
                         vtk["nodal contact distance"] = vec(grid.state.d)
@@ -162,16 +159,16 @@ function writeoutput(
         end
     end
 
-    if INPUT.Output.snapshots
+    if input.Output.snapshots
         serialize(
-            joinpath(INPUT.Output.directory, "snapshots", "snapshot$output_index"),
-            (; grid, pointstate, rigidbodies, t)
+            joinpath(input.Output.directory, "snapshots", "snapshot$output_index"),
+            (; t, grid, pointstate, rigidbodies)
         )
     end
 
-    if isdefined(INPUT.Injection, :main_output)
-        INPUT.Injection.main_output((;
-            INPUT,
+    if isdefined(input.Injection, :main_output)
+        input.Injection.main_output((;
+            input,
             grid,
             pointstate,
             rigidbodies,

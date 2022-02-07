@@ -6,14 +6,17 @@ coordinate_system = "plane_strain" # plane_strain
 domain = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.01  # (m)
 gravity = 9.81     # (m/s2)
-total_time = 0.5  # (sec)
 show_progress = false
+
+[Phase]
+time_stop = 0.5  # (sec)
+CFL = 1.0
 
 [BoundaryCondition]
 bottom = 0.3
 
 [Output]
-interval = 0.02 # (sec)
+time_interval = 0.02 # (sec)
 directory = "output.tmp"
 snapshots = false
 paraview = true
@@ -21,37 +24,35 @@ paraview_grid = false
 copy_inputfile = true
 
 [[Material]]
-type = "DruckerPrager"
-mohr_coulomb_type = "plane_strain"
 region = "(x,y) -> 0.0 < x < 0.15 && y < 0.3"
 density = 2.7e3       # (kg/m3)
+friction_with_rigidbodies = [0.3, 0.0]
+[Material.model.DruckerPrager]
+mohr_coulomb_type = "plane_strain"
 poissons_ratio = 0.3
 youngs_modulus = 1e6  # (N/m2)
 cohesion = 0.0        # (N/m2)
 friction_angle = 30.0 # (degree)
 dilatancy_angle = 0.0 # (degree)
 tension_cutoff = 0.0
-friction_with_rigidbodies = [0.3, 0.0]
-[Material.Initialization]
-type = "K0"
-K0 = "auto"
-reference_height = 0.3
+[Material.init.K0]
+poissons_ratio = 0.3
+height_ref = 0.3
 
 [[RigidBody]]
-type = "Circle"
-center = [0.075, 0.15]
-radius = 0.02    # (m)
-density = 1.20e3 # (kg/m3)
 control = false
+density = 1.20e3 # (kg/m3)
+[RigidBody.model.Circle]
+centroid = [0.075, 0.15]
+radius = 0.02    # (m)
 
 [[RigidBody]]
-type = "Polygon"
-coordinates = [[0.15, 0.0], [0.17, 0.0], [0.17, 0.5], [0.15, 0.5]]
 control = true
 velocity = [0.0, 2.0]
+[RigidBody.model.Polygon]
+coordinates = [[0.15, 0.0], [0.17, 0.0], [0.17, 0.5], [0.15, 0.5]]
 
 [Advanced]
-CFL = 1.0
 npoints_in_cell = 2 # in each dimension
 contact_threshold_scale = 1.0
 contact_penalty_parameter = 0.0

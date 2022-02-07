@@ -11,20 +11,28 @@ using NaturalSort
 
 const fix_results = false
 
-function check_results(inputtoml::String)
-    @assert endswith(inputtoml, ".toml")
-    testcase = joinpath(basename(dirname(inputtoml)), basename(inputtoml))
+function check_results(tomlfile::String)
+    @assert endswith(tomlfile, ".toml")
+    testcase = joinpath(basename(dirname(tomlfile)), basename(tomlfile))
     println("\n>> ", testcase)
     @testset "$testcase" begin
-        @time PoingrSimulator.main(inputtoml)
+        @time PoingrSimulator.main(tomlfile)
 
-        INPUT = PoingrSimulator.build_INPUT(inputtoml)
-        proj_dir = INPUT.General.project_directory
-        output_dir = INPUT.Output.directory
+        input = PoingrSimulator.parse_inputfile(tomlfile)
+        proj_dir = input.project
+        output_dir = input.Output.directory
 
-        testname = first(splitext(basename(inputtoml)))
-        if haskey(INPUT.General, :restart)
+        restart_case = !isa(input.Phase, Vector) && !isempty(input.Phase.restart)
+
+        # for restart
+        testname = first(splitext(basename(tomlfile)))
+        if restart_case
             testname = replace(testname, "_restart" => "")
+        end
+
+        # for multiple phases
+        if input.Phase isa Vector
+            output_dir = joinpath(output_dir, string(length(input.Phase)))
         end
 
         # vtk files
@@ -39,7 +47,7 @@ function check_results(inputtoml::String)
             )[end],
         )
 
-        if fix_results && !haskey(INPUT.General, :restart)
+        if fix_results && !restart_case
             cp(joinpath(output_dir, vtk_file),
                joinpath(proj_dir, "output", "$testname.vtu"); force = true)
         else
@@ -48,15 +56,14 @@ function check_results(inputtoml::String)
             result = VTKFile(joinpath(output_dir, vtk_file))
             expected_points = get_points(expected)
             result_points = get_points(result)
-            @assert size(expected_points) == size(result_points)
+            @test size(expected_points) == size(result_points)
             @test all(eachindex(expected_points)) do i
-                norm(expected_points[i] - result_points[i]) < 0.05*INPUT.General.grid_space
+                norm(expected_points[i] - result_points[i]) < 0.05*input.General.grid_space
             end
         end
 
         # snapshots file
-        if !fix_results && !haskey(INPUT.General, :restart)
-            nsteps = floor(Int, INPUT.General.total_time / INPUT.Output.interval)
+        if !fix_results && input.Output.snapshots == true
             root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
             count = 0
             for file in sort(files, lt = natural)
@@ -67,7 +74,7 @@ function check_results(inputtoml::String)
         end
 
         # test history.csv if exists
-        if isfile(joinpath(output_dir, "history.csv")) && !haskey(INPUT.General, :restart)
+        if isfile(joinpath(output_dir, "history.csv")) && !restart_case
             if fix_results
                 cp(joinpath(output_dir, "history.csv"),
                    joinpath(proj_dir, "output", "$testname.csv"); force = true)

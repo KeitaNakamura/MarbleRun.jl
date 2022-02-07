@@ -1,7 +1,7 @@
 module PenetrateIntoGround
 
 using PoingrSimulator
-using PoingrSimulator: Input, getoftype
+using PoingrSimulator: Input, Input_Phase
 using Poingr
 using GeometricObjects
 
@@ -34,43 +34,41 @@ struct PointState
     matindex::Int
 end
 
-function preprocess_input!(dict::Dict)
-    dict["Material"] = dict["SoilLayer"]
-    for mat in dict["Material"]
-        mat["type"] = DruckerPrager
-        @assert length(mat["friction_with_rigidbodies"]) == 1
+function preprocess_input!(input::Input)
+    input.Material = input.SoilLayer
+    for mat in input.Material
+        @assert length(mat.friction_with_rigidbodies) == 1
     end
-    bc = get!(dict, "BoundaryCondition", Dict{String, Any}())
-    for (side, contact) in ("left"   => Contact(:slip),
-                            "right"  => Contact(:slip),
-                            "bottom" => Contact(:sticky),
-                            "top"    => Contact(:slip))
-        get!(bc, side, contact)
-    end
-    for rigidbody in dict["RigidBody"]
-        rigidbody["density"] = Inf # for calculation of effective mass in collision
+    input.BoundaryCondition.left   = Contact(:slip)
+    input.BoundaryCondition.right  = Contact(:slip)
+    input.BoundaryCondition.bottom = Contact(:sticky)
+    input.BoundaryCondition.top    = Contact(:slip)
+    for rigidbody in input.RigidBody
+        # for calculation of effective mass in collision
+        rigidbody.density = Inf
+        rigidbody.model.m = Inf
     end
 end
 
-function initialize(INPUT::Input{:Root})
+function initialize(input::Input)
     # General
-    coordinate_system = INPUT.General.coordinate_system
-    (xmin, xmax), (ymin, ymax) = INPUT.General.domain
-    dx = INPUT.General.grid_space
-    g = INPUT.General.gravity
+    coordinate_system = input.General.coordinate_system
+    (xmin, xmax), (ymin, ymax) = input.General.domain
+    dx = input.General.grid_space
+    g = input.General.gravity
 
     # SoilLayer
-    soillayers = INPUT.SoilLayer
+    soillayers = input.SoilLayer
     H = sum(layer -> layer.thickness, soillayers) # ground surface
     @assert H ≤ ymax
 
     # Advanced
-    α = INPUT.Advanced.contact_threshold_scale
-    nptsincell = INPUT.Advanced.npoints_in_cell
+    α = input.Advanced.contact_threshold_scale
+    nptsincell = input.Advanced.npoints_in_cell
 
     grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate((x,y) -> y < H, PointState, grid; n = nptsincell)
-    rigidbody = PoingrSimulator.create_rigidbody(only(INPUT.RigidBody))
+    rigidbody = only(input.RigidBody).model
 
     bottom = ymin
     for i in length(soillayers):-1:1 # from low to high
@@ -96,9 +94,9 @@ function initialize(INPUT::Input{:Root})
         layer = soillayers[layerindex]
         y = pointstate.x[p][2]
         ρ0 = layer.density
-        ν = layer.poissons_ratio
+        K0 = layer.K0
         σ_y += -ρ0 * g * (h - y)
-        σ_x = σ_y * ν / (1 - ν)
+        σ_x = K0 * σ_y
         pointstate.σ[p] = (@Mat [σ_x 0.0 0.0
                                  0.0 σ_y 0.0
                                  0.0 0.0 σ_x]) |> symmetric
@@ -109,52 +107,50 @@ function initialize(INPUT::Input{:Root})
     translate!(rigidbody, Vec(0.0, H + (α-1)*(dx/nptsincell)/2))
     t = 0.0
 
-    grid, pointstate, rigidbody, deepcopy(rigidbody), t
+    t, grid, pointstate, rigidbody, deepcopy(rigidbody)
 end
 
-function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
+function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, rigidbody0)
 
     println("Particles: ", length(pointstate))
 
     # General/Output
-    dx = INPUT.General.grid_space
-    t_stop = INPUT.General.total_time
-    t_step = INPUT.Output.interval
-    logoffset = searchsortedlast(0.0:t_step:t_stop, t)
-    t_start = (0.0:t_step:t_stop)[logoffset]
-    logoffset -= 1
+    dx = input.General.grid_space
+    t_start = t
+    t_stop = phase.time_stop
+    t_step = input.Output.time_interval
 
     # SoilLayer
-    matmodels = map(PoingrSimulator.create_materialmodel, INPUT.SoilLayer)
+    matmodels = map(x -> x.model, input.SoilLayer)
 
     ################
     # Output files #
     ################
 
-    output_dir = INPUT.Output.directory
+    outdir = input.Output.directory
     outputs = Dict{String, Any}()
-    if INPUT.Output.paraview
-        mkpath(joinpath(output_dir, "paraview"))
-        outputs["paraview_file"] = joinpath(output_dir, "paraview", "output")
+    if input.Output.paraview
+        mkpath(joinpath(outdir, "paraview"))
+        outputs["paraview_file"] = joinpath(outdir, "paraview", "output")
         paraview_collection(vtk_save, outputs["paraview_file"])
     end
-    if INPUT.Output.history
-        outputs["history_file"] = joinpath(output_dir, "history.csv")
+    if input.Output.history
+        outputs["history_file"] = joinpath(outdir, "history.csv")
         open(outputs["history_file"], "w") do io
             write(io, "disp,force\n")
         end
     end
-    if INPUT.Output.snapshots
-        mkpath(joinpath(output_dir, "snapshots"))
+    if input.Output.snapshots
+        mkpath(joinpath(outdir, "snapshots"))
     end
-    if isdefined(INPUT.Injection, :main_output)
-        INPUT.Injection.main_output_initialize((;
-            INPUT,
+    if isdefined(input.Injection, :main_output)
+        input.Injection.main_output_initialize((;
+            input,
+            t,
             grid,
             pointstate,
             rigidbody,
             rigidbody0,
-            t,
         ))
     end
 
@@ -163,28 +159,30 @@ function main(INPUT::Input{:Root}, grid, pointstate, rigidbody, rigidbody0, t)
     ##################
 
     cache = MPCache(grid, pointstate.x)
-    logger = Logger(t_start, t_stop, t_step; INPUT.General.show_progress)
+    logger = Logger(t_start, t_stop, t_step; input.General.show_progress)
     update!(logger, t)
-    writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logoffset + logindex(logger))
+    writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
 
     while !isfinised(logger, t)
-        dt = INPUT.Advanced.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
+        dt = phase.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
             PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
         end
-        PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, INPUT, dt)
+        PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, dt, input, phase)
         update!(logger, t += dt)
         if islogpoint(logger)
-            if getoftype(INPUT.Advanced, :reorder_pointstate, false)
+            if input.Advanced.reorder_pointstate
                 Poingr.reorder_pointstate!(pointstate, cache)
             end
-            writeoutput(outputs, INPUT, grid, pointstate, rigidbody, rigidbody0, t, logoffset + logindex(logger))
+            writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
         end
     end
+
+    t
 end
 
 function writeoutput(
         outputs::Dict{String, Any},
-        INPUT::Input{:Root},
+        input::Input,
         grid::Grid,
         pointstate::AbstractVector,
         rigidbody::GeometricObject,
@@ -192,7 +190,7 @@ function writeoutput(
         t::Real,
         output_index::Int,
     )
-    if INPUT.Output.paraview
+    if input.Output.paraview
         compress = true
         paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
@@ -201,7 +199,7 @@ function writeoutput(
                     PoingrSimulator.write_vtk_points(vtk, pointstate)
                 end
                 vtk_grid(vtm, rigidbody)
-                if INPUT.Output.paraview_grid
+                if input.Output.paraview_grid
                     vtk_grid(vtm, grid; compress) do vtk
                         vtk["nodal contact force"] = vec(grid.state.fc)
                         vtk["nodal contact distance"] = vec(grid.state.d)
@@ -213,28 +211,28 @@ function writeoutput(
         end
     end
 
-    if INPUT.Output.history
+    if input.Output.history
         history_file = outputs["history_file"]
         open(history_file, "a") do io
             disp = abs(centroid(rigidbody)[2] - centroid(rigidbody0)[2])
             force = -sum(grid.state.fc)[2]
-            if INPUT.General.coordinate_system isa Axisymmetric
+            if input.General.coordinate_system isa Axisymmetric
                 force *= 2π
             end
             write(io, "$disp,$force\n")
         end
     end
 
-    if INPUT.Output.snapshots
+    if input.Output.snapshots
         serialize(
-            joinpath(INPUT.Output.directory, "snapshots", "snapshot$output_index"),
-            (; grid, pointstate, rigidbody, rigidbody0, t)
+            joinpath(input.Output.directory, "snapshots", "snapshot$output_index"),
+            (; t, grid, pointstate, rigidbody, rigidbody0)
         )
     end
 
-    if isdefined(INPUT.Injection, :main_output)
-        INPUT.Injection.main_output((;
-            INPUT,
+    if isdefined(input.Injection, :main_output)
+        input.Injection.main_output((;
+            input,
             grid,
             pointstate,
             rigidbody,
