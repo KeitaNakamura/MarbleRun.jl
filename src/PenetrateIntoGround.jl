@@ -110,8 +110,6 @@ end
 
 function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, rigidbody0)
 
-    println("Particles: ", length(pointstate))
-
     # General/Output
     dx = input.General.grid_space
     t_start = t

@@ -36,8 +36,9 @@ function main(project::AbstractString, inputtoml::AbstractString, Injection::Mod
     main(input, input.Phase)
 end
 
-function main(input::Input, phase::Input_Phase, data = initialize(input, phase))
-    @eval $input.General.type.main($input, $phase, $data...)
+function main(input::Input, phase::Input_Phase, (t, grid, pointstate, data...) = initialize(input, phase))
+    println("Points: ", length(pointstate))
+    @eval $input.General.type.main($input, $phase, $t, $grid, $pointstate, $data...)
 end
 
 function main(input::Input, phases::Vector{Input_Phase})
