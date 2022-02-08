@@ -48,6 +48,7 @@ function preprocess_input!(input::Input)
         rigidbody.density = Inf
         rigidbody.model.m = Inf
     end
+    @assert isempty(input.BoundaryCondition.Dirichlet)
 end
 
 function initialize(input::Input)

@@ -63,6 +63,12 @@ function initialize(input::Input)
     end
     t = 0.0
 
+    for dirichlet in input.BoundaryCondition.Dirichlet
+        active_nodes = map(x -> dirichlet.inbounds(x[1], x[2]), grid)
+        setbounds!(grid, active_nodes)
+        dirichlet.active_nodes = active_nodes
+    end
+
     t, grid, pointstate, rigidbodies
 end
 
@@ -90,6 +96,17 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbodies
     end
     if input.Output.snapshots
         mkpath(joinpath(outdir, "snapshots"))
+    end
+    if any(d -> d.output, input.BoundaryCondition.Dirichlet)
+        Dirichlet = input.BoundaryCondition.Dirichlet
+        for i in eachindex(Dirichlet)
+            if Dirichlet[i].output
+                dir = joinpath(outdir, "dirichlet", "$i")
+                mkpath(dir)
+                history_file = joinpath(dir, "history.csv")
+                write(history_file, "disp,force\n")
+            end
+        end
     end
     if isdefined(input.Injection, :main_output)
         input.Injection.main_output_initialize((;
@@ -164,6 +181,21 @@ function writeoutput(
             joinpath(input.Output.directory, "snapshots", "snapshot$output_index"),
             (; t, grid, pointstate, rigidbodies)
         )
+    end
+
+    if any(d -> d.output, input.BoundaryCondition.Dirichlet)
+        Dirichlet = input.BoundaryCondition.Dirichlet
+        for i in eachindex(Dirichlet)
+            dirichlet = Dirichlet[i]
+            if dirichlet.output
+                history_file = joinpath(input.Output.directory, "dirichlet", "$i", "history.csv")
+                open(history_file, "a") do io
+                    disp = dirichlet.displacement
+                    force = dirichlet.reaction_force
+                    write(io, join([disp, force], ",") * "\n")
+                end
+            end
+        end
     end
 
     if isdefined(input.Injection, :main_output)

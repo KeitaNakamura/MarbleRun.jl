@@ -83,22 +83,47 @@ end
 # BoundaryCondition #
 #####################
 
+# dirichlet
+Base.@kwdef struct TOMLInput_BoundaryCondition_Dirichlet <: TOMLTable
+    inbounds       :: EvalString{Function}
+    velocity       :: ToVec
+    output         :: Bool                 = true
+end
+mutable struct Input_BoundaryCondition_Dirichlet{dim}
+    inbounds       :: Function
+    velocity       :: Vec{dim, Float64}
+    output         :: Bool
+    displacement   :: Float64
+    reaction_force :: Float64
+    active_nodes   :: Array{Bool, dim}
+end
+function convert_input(input::TOMLInput_BoundaryCondition_Dirichlet)
+    inbounds = convert_input(input.inbounds)
+    velocity = convert_input(input.velocity)
+    output = input.output
+    dim = length(velocity)
+    Input_BoundaryCondition_Dirichlet(inbounds, velocity, output, 0.0, 0.0, Array{Bool, dim}(undef, fill(0, dim)...))
+end
+
 Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLTable
     top    :: Float64 = 0.0
     bottom :: Float64 = 0.0
     left   :: Float64 = 0.0
     right  :: Float64 = 0.0
+    Dirichlet :: Vector{TOMLInput_BoundaryCondition_Dirichlet} = []
 end
 
-mutable struct Input_BoundaryCondition
-    top    :: Contact
-    bottom :: Contact
-    left   :: Contact
-    right  :: Contact
+mutable struct Input_BoundaryCondition{Dirichlet}
+    top       :: Contact
+    bottom    :: Contact
+    left      :: Contact
+    right     :: Contact
+    Dirichlet :: Vector{Dirichlet}
 end
 
 function convert_input(input::TOMLInput_BoundaryCondition, ::Val{name}) where {name}
-    Contact(:friction, getproperty(input, name))
+    name != :Dirichlet && return Contact(:friction, getproperty(input, name))
+    map(convert_input, input.Dirichlet)
 end
 
 ##########

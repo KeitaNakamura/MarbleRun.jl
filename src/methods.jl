@@ -139,8 +139,27 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     end
 
     # Boundary conditions
-    for bd in eachboundary(grid)
-        @inbounds grid.state.v[bd.I] = boundary_velocity(grid.state.v[bd.I], bd.n, input.BoundaryCondition)
+    for dirichlet in input.BoundaryCondition.Dirichlet
+        dirichlet.displacement += norm(dirichlet.velocity) * dt
+        dirichlet.reaction_force = 0.0
+    end
+    @inbounds for bound in eachboundary(grid)
+        I = bound.I
+        vᵢ = grid.state.v[I]
+        v = vᵢ
+        isdirichlet = false
+        for dirichlet in input.BoundaryCondition.Dirichlet
+            if dirichlet.active_nodes[I]
+                vᵢ′ = dirichlet.velocity
+                dirichlet.reaction_force += grid.state.m[I] * (norm(vᵢ-vᵢ′) / dt)
+                v = vᵢ′
+                isdirichlet = true
+            end
+        end
+        if !isdirichlet
+            v = boundary_velocity(vᵢ, bound.n, input.BoundaryCondition)
+        end
+        grid.state.v[I] = v
     end
 
     # Grid-to-point transfer
