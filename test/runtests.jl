@@ -75,24 +75,43 @@ function check_results(tomlfile::String)
 
         # test history.csv if exists
         if isfile(joinpath(output_dir, "history.csv")) && !restart_case
-            if fix_results
-                cp(joinpath(output_dir, "history.csv"),
-                   joinpath(proj_dir, "output", "$testname.csv"); force = true)
-            else
-                # check results
-                output = CSV.File(joinpath(proj_dir, "output", "$testname.csv")) # expected output
-                history = CSV.File(joinpath(output_dir, "history.csv"))
-                for name in propertynames(output)
-                    output_col = output[name]
-                    history_col = history[name]
-                    @test output_col ≈ history_col atol=1e-8 rtol=1e-3
+            expected = joinpath(output_dir, "history.csv")
+            src = joinpath(proj_dir, "output", "$testname.csv")
+            fix_results ? fix_history(expected, src) :
+                          check_history(expected, src)
+        end
+
+        # dirichlet
+        if any(d -> d.output, input.BoundaryCondition.Dirichlet)
+            Dirichlet = input.BoundaryCondition.Dirichlet
+            for i in eachindex(Dirichlet)
+                dirichlet = Dirichlet[i]
+                if dirichlet.output
+                    expected = joinpath(output_dir, "dirichlet", "$i", "history.csv")
+                    src = joinpath(proj_dir, "output", "$(testname)_diriclet_$i.csv")
+                    fix_results ? fix_history(expected, src) :
+                                  check_history(expected, src)
                 end
             end
         end
     end
 end
 
-@testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun")
+function fix_history(dest, src)
+    cp(dest, src ; force = true)
+end
+function check_history(expected, src)
+    # check results
+    output = CSV.File(expected) # expected output
+    history = CSV.File(src)
+    for name in propertynames(output)
+        output_col = output[name]
+        history_col = history[name]
+        @test output_col ≈ history_col atol=1e-8 rtol=1e-3
+    end
+end
+
+@testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun",)
     # clean up  first
     for (root, dirs, files) in collect(walkdir(module_name))
         for dir in dirs
