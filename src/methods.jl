@@ -189,13 +189,13 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
     mask
 end
 
-function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::T, ξ::T) where {dim, T}
+function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::Vec{2, T}, ξ::T) where {dim, T}
     iszero(d) && return zero(Vec{dim, T})
     n = normalize(d)
     vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
     f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
-    Contact(:friction, μ; sep = true)(f_nor + f_tan, n)
+    Contact(:friction, μ[1]; sep = true, thresh = μ[2])(f_nor + f_tan, n)
 end
 
 ##########################

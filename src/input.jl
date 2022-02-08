@@ -25,6 +25,11 @@ end
 Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
+struct SkipEntry{T}
+    content::T
+end
+Base.convert(::Type{SkipEntry{T}}, x) where {T} = SkipEntry{T}(x)
+
 _undefkey(s) = throw(UndefKeywordError(s))
 
 ###########
@@ -124,16 +129,18 @@ end
 # Material #
 ############
 
+const VV{T} = Vector{Vector{T}}
 wrap(x)::Vector{Float64} = x isa Number ? [x] : x
 
 Base.@kwdef mutable struct TOMLInput_Material <: TOMLTable
-    region                    :: EvalString{Function}
-    density                   :: Float64
-    model                     :: MaterialModel
+    region                              :: EvalString{Function}
+    density                             :: Float64
+    model                               :: MaterialModel
     init
-    friction_with_rigidbodies :: Vector{Vector{Float64}} = []
-    function TOMLInput_Material(region, density, model, init, friction_with_rigidbodies)
-        new(region, density, model, init, map(wrap, friction_with_rigidbodies))
+    friction_with_rigidbodies           :: VV{Float64}            = []
+    friction_threshold_with_rigidbodies :: SkipEntry{VV{Float64}} = []
+    function TOMLInput_Material(region, density, model, init, friction_with_rigidbodies, friction_threshold_with_rigidbodies)
+        new(region, density, model, init, map(wrap, friction_with_rigidbodies), map(wrap, friction_threshold_with_rigidbodies))
     end
 end
 
@@ -142,7 +149,14 @@ mutable struct Input_Material{Model <: MaterialModel, Init}
     density                   :: Float64
     model                     :: Model
     init                      :: Init
-    friction_with_rigidbodies :: Vector{Vector{Float64}}
+    friction_with_rigidbodies :: VV{Vec{2, Float64}} # Vec{2}(μ, c)
+end
+
+function convert_input(input::TOMLInput_Material, ::Val{:friction_with_rigidbodies})::VV{Vec{2, Float64}}
+    μ = input.friction_with_rigidbodies
+    c = input.friction_threshold_with_rigidbodies.content
+    c = isempty(c) ? [fill(0.0, length(x)) for x in μ] : c
+    [[Vec(y) for y in zip(x...)] for x in zip(μ, c)]
 end
 
 #############
@@ -150,14 +164,15 @@ end
 #############
 
 Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLTable
-    thickness                 :: Float64
-    density                   :: Float64
-    poissons_ratio            :: Float64                 = NaN
-    K0                        :: Float64                 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
-    model                     :: MaterialModel
-    friction_with_rigidbodies :: Vector{Vector{Float64}} = []
-    function TOMLInput_SoilLayer(region, density, poissons_ratio, K0, model, friction_with_rigidbodies)
-        new(region, density, poissons_ratio, K0, model, map(wrap, friction_with_rigidbodies))
+    thickness                           :: Float64
+    density                             :: Float64
+    poissons_ratio                      :: Float64                = NaN
+    K0                                  :: Float64                = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    model                               :: MaterialModel
+    friction_with_rigidbodies           :: VV{Float64}            = []
+    friction_threshold_with_rigidbodies :: SkipEntry{VV{Float64}} = []
+    function TOMLInput_SoilLayer(region, density, poissons_ratio, K0, model, friction_with_rigidbodies, friction_threshold_with_rigidbodies)
+        new(region, density, poissons_ratio, K0, model, map(wrap, friction_with_rigidbodies), map(wrap, friction_threshold_with_rigidbodies))
     end
 end
 
@@ -167,7 +182,14 @@ mutable struct Input_SoilLayer{Model <: MaterialModel}
     poissons_ratio            :: Float64
     K0                        :: Float64
     model                     :: Model
-    friction_with_rigidbodies :: Vector{Vector{Float64}}
+    friction_with_rigidbodies :: VV{Vec{2, Float64}} # Vec{2}(μ, c)
+end
+
+function convert_input(input::TOMLInput_SoilLayer, ::Val{:friction_with_rigidbodies})::VV{Vec{2, Float64}}
+    μ = input.friction_with_rigidbodies
+    c = input.friction_threshold_with_rigidbodies.content
+    c = isempty(c) ? [fill(0.0, length(x)) for x in μ] : c
+    [[Vec(y) for y in zip(x...)] for x in zip(μ, c)]
 end
 
 ##############################
@@ -398,7 +420,7 @@ convert_input(x) = x
 convert_input(x::Vector) = map(convert_input, x)
 @generated function convert_input(table::TOMLTable)
     names = fieldnames(table)
-    exps = [:(convert_input(table, $(Val(name)))) for name in names]
+    exps = [:(convert_input(table, $(Val(name)))) for name in names if !(fieldtype(table, name) <: SkipEntry)]
     T = Symbol(replace(string(table.name.name), "TOML" => ""))
     quote
         $T($(exps...))

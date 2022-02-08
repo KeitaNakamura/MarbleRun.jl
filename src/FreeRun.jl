@@ -16,7 +16,7 @@ struct NodeState
     vᵣ::Vec{2, Float64}
     fc::Vec{2, Float64}
     d::Vec{2, Float64}
-    μ::Float64
+    μ::Vec{2, Float64} # [μ, c]
 end
 
 struct PointState
@@ -151,7 +151,7 @@ function writeoutput(
                     vtk_grid(vtm, grid; compress) do vtk
                         vtk["nodal contact force"] = vec(grid.state.fc)
                         vtk["nodal contact distance"] = vec(grid.state.d)
-                        vtk["nodal friction"] = vec(grid.state.μ)
+                        vtk["nodal friction"] = vec(grid.state.μ[1])
                     end
                 end
                 pvd[t] = vtm

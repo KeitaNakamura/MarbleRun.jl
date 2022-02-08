@@ -11,5 +11,5 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 GeometricObjects = "0.5"
-Poingr = "0.19"
+Poingr = "0.19.3"
 julia = "1.6"
