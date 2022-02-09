@@ -67,7 +67,7 @@ function initialize(input::Input)
     α = input.Advanced.contact_threshold_scale
     nptsincell = input.Advanced.npoints_in_cell
 
-    grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    grid = Grid(NodeState, input.General.interpolation, xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate((x,y) -> y < H, PointState, grid; n = nptsincell)
     rigidbody = only(input.RigidBody).model
 

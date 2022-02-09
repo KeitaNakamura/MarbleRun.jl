@@ -1,4 +1,5 @@
 using Poingr
+using Poingr: Interpolation
 using GeometricObjects
 using TOML
 
@@ -25,6 +26,12 @@ end
 Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
+struct ToTuple{T}
+    content::Vector{T}
+end
+Base.convert(::Type{ToTuple{T}}, x::Vector) where {T} = ToTuple{T}(x)
+convert_input(x::ToTuple{T}) where {T} = NTuple{length(x.content), T}(x.content)
+
 struct SkipEntry{T}
     content::T
 end
@@ -42,15 +49,21 @@ Base.@kwdef mutable struct TOMLInput_General <: TOMLTable
     domain            :: Vector{Vector{Float64}}
     grid_space        :: Float64
     gravity           :: Float64
-    show_progress     :: Bool = true
+    interpolation     :: EvalString{Interpolation} = "LinearWLS(QuadraticBSpline())"
+    transfer          :: ToTuple{String}           = startswith(interpolation, "LinearWLS") ||
+                                                     startswith(interpolation, "KernelCorrection") ?
+                                                     ["affine", "PIC"] : ["normal", "FLIP"]
+    show_progress     :: Bool                      = true
 end
 
-mutable struct Input_General{C <: CoordinateSystem}
+mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpolation}
     type              :: Module
-    coordinate_system :: C
+    coordinate_system :: CoordSystem
     domain            :: Vector{Vector{Float64}}
     grid_space        :: Float64
     gravity           :: Float64
+    interpolation     :: Interp
+    transfer          :: Tuple{String, String}
     show_progress     :: Bool
 end
 

@@ -117,7 +117,7 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     end
 
     # Point-to-grid transfer
-    P2G!(grid, pointstate, cache, dt)
+    P2G!(grid, pointstate, cache, dt, input)
     for (i, rigidbody) in enumerate(rigidbodies)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
@@ -163,15 +163,21 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
     end
 
     # Grid-to-point transfer
-    G2P!(pointstate, grid, cache, matmodels, materials, dt, phase) # `materials` are for densities
+    G2P!(pointstate, grid, cache, matmodels, materials, dt, input, phase) # `materials` are for densities
 end
 
 ##########################
 # point-to-grid transfer #
 ##########################
 
-function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real)
-    default_point_to_grid!(grid, pointstate, cache, dt)
+function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, input::Input)
+    if input.General.transfer[1] == "normal"
+        default_point_to_grid!(grid, pointstate, cache, dt)
+    elseif input.General.transfer[1] == "affine"
+        default_affine_point_to_grid!(grid, pointstate, cache, dt)
+    else
+        error("wrong transfer, got $(input.General.transfer[1])")
+    end
 end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, rigidbody_index::Int, materials, α::Real, ξ::Real)
@@ -221,8 +227,14 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: Union{Input_Material, Input_SoilLayer}}, dt::Real, phase::Input_Phase)
-    default_grid_to_point!(pointstate, grid, cache, dt)
+function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: Union{Input_Material, Input_SoilLayer}}, dt::Real, input::Input, phase::Input_Phase)
+    if input.General.transfer[2] == "FLIP"
+        default_grid_to_point!(pointstate, grid, cache, dt)
+    elseif input.General.transfer[2] == "PIC"
+        default_affine_grid_to_point!(pointstate, grid, cache, dt)
+    else
+        error("wrong transfer, got $(input.General.transfer[2])")
+    end
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]

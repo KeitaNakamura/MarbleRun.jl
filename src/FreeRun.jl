@@ -52,7 +52,7 @@ function initialize(input::Input)
     materials = input.Material
     rigidbodies = map(x -> x.model, input.RigidBody)
 
-    grid = Grid(NodeState, LinearWLS(QuadraticBSpline()), xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    grid = Grid(NodeState, input.General.interpolation, xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
         mat = materials[matindex]
         ρ0 = mat.density

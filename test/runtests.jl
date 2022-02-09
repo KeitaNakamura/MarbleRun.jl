@@ -47,10 +47,10 @@ function check_results(tomlfile::String)
             )[end],
         )
 
-        if fix_results && !restart_case
+        if fix_results
             cp(joinpath(output_dir, vtk_file),
                joinpath(proj_dir, "output", "$testname.vtu"); force = true)
-        else
+        elseif !restart_case
             # check results
             expected = VTKFile(joinpath(proj_dir, "output", "$testname.vtu")) # expected output
             result = VTKFile(joinpath(output_dir, vtk_file))
