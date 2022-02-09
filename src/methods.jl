@@ -118,13 +118,12 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt, input)
-    for (i, rigidbody) in enumerate(rigidbodies)
+    for (rigidbody, input_rigidbody) in zip(rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
-        mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, i, materials, α, ξ)
+        mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, input_rigidbody.frictions, α, ξ)
         if phase.update_motion == true
             # Update rigid bodies
-            input_rigidbody = input.RigidBody[i]
             b = input_rigidbody.body_force
             if input_rigidbody.control
                 GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
@@ -180,7 +179,7 @@ function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, 
     end
 end
 
-function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, rigidbody_index::Int, materials, α::Real, ξ::Real)
+function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
     !any(mask) && return mask
     point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
@@ -192,8 +191,7 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         vₚ = pointstate.v[p]
         m = N * mₚ
         d₀ = α * mean(pointstate.r[p]) # threshold
-        mat = materials[pointstate.matindex[p]]
-        coef = mat.friction_with_rigidbodies[rigidbody_index]
+        coef = frictions[pointstate.matindex[p]]
         if length(coef) == 1
             μ = only(coef)
             dₚ = distance(rigidbody, xₚ, d₀)

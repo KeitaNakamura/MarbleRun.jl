@@ -26,7 +26,6 @@ copy_inputfile = true
 thickness = 0.1 # (m)
 density = 1300.0 # (kg/m3)
 poissons_ratio = 0.333 # K0 is calculated from poisson's ratio
-friction_with_rigidbodies = [[0.0, 0.0, 0.35, 0.35]]
 [SoilLayer.model.DruckerPrager]
 mohr_coulomb_type = "circumscribed"
 poissons_ratio = 0.333
@@ -40,7 +39,6 @@ tension_cutoff = 0.0
 thickness = 0.9 # (m)
 density = 1500.0 # (kg/m3)
 poissons_ratio = 0.333 # K0 is calculated from poisson's ratio
-friction_with_rigidbodies = [0.41]
 [SoilLayer.model.DruckerPrager]
 mohr_coulomb_type = "circumscribed"
 poissons_ratio = 0.333
@@ -54,6 +52,10 @@ tension_cutoff = 0.0
 velocity = [0.0, -2.0] # (m/s)
 [RigidBody.model.Polygon]
 coordinates = [[0.075, 1.0], [0.075, 0.0], [0.095, 0.0], [0.095, 1.0]]
+[[RigidBody.Friction]]
+coefficient = [0.0, 0.0, 0.35, 0.35]
+[[RigidBody.Friction]]
+coefficient = 0.41
 
 [Advanced]
 contact_threshold_scale = 1.5

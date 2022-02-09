@@ -36,9 +36,6 @@ end
 
 function preprocess_input!(input::Input)
     input.Material = input.SoilLayer
-    for mat in input.Material
-        @assert length(mat.friction_with_rigidbodies) == 1
-    end
     input.BoundaryCondition.left   = Contact(:slip)
     input.BoundaryCondition.right  = Contact(:slip)
     input.BoundaryCondition.bottom = Contact(:sticky)

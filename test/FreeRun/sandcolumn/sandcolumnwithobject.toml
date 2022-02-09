@@ -26,7 +26,6 @@ copy_inputfile = true
 [[Material]]
 region = "(x,y) -> 0.0 < x < 0.15 && y < 0.3"
 density = 2.7e3       # (kg/m3)
-friction_with_rigidbodies = [0.3, 0.0]
 [Material.model.DruckerPrager]
 mohr_coulomb_type = "plane_strain"
 poissons_ratio = 0.3
@@ -45,12 +44,16 @@ density = 1.20e3 # (kg/m3)
 [RigidBody.model.Circle]
 centroid = [0.075, 0.15]
 radius = 0.02    # (m)
+[[RigidBody.Friction]]
+coefficient = 0.3
 
 [[RigidBody]]
 control = true
 velocity = [0.0, 2.0]
 [RigidBody.model.Polygon]
 coordinates = [[0.15, 0.0], [0.17, 0.0], [0.17, 0.5], [0.15, 0.5]]
+[[RigidBody.Friction]]
+coefficient = 0.0
 
 [Advanced]
 npoints_in_cell = 2 # in each dimension

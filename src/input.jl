@@ -7,6 +7,21 @@ function parse_input(str::AbstractString; project = ".")
     input = convert_input(TOMLInput(TOML.parse(str)))
     input.project = project
     input.Output.directory = joinpath(input.project, input.Output.directory)
+
+    # RigidBody
+    for rigidbody in input.RigidBody
+        @assert length(input.Material) == length(rigidbody.frictions)
+        model = rigidbody.model
+        for friction in rigidbody.frictions
+            len = length(friction)
+            if model[] isa Polygon
+                @assert len == 1 || len == length(model)
+            else
+                @assert len == 1
+            end
+        end
+    end
+
     input.General.type.preprocess_input!(input)
     input
 end
@@ -171,30 +186,17 @@ const VV{T} = Vector{Vector{T}}
 wrap(x)::Vector{Float64} = x isa Number ? [x] : x
 
 Base.@kwdef mutable struct TOMLInput_Material <: TOMLTable
-    region                              :: EvalString{Function}
-    density                             :: Float64
-    model                               :: MaterialModel
+    region  :: EvalString{Function}
+    density :: Float64
+    model   :: MaterialModel
     init
-    friction_with_rigidbodies           :: VV{Float64}            = []
-    friction_threshold_with_rigidbodies :: SkipEntry{VV{Float64}} = []
-    function TOMLInput_Material(region, density, model, init, friction_with_rigidbodies, friction_threshold_with_rigidbodies)
-        new(region, density, model, init, map(wrap, friction_with_rigidbodies), map(wrap, friction_threshold_with_rigidbodies))
-    end
 end
 
 mutable struct Input_Material{Model <: MaterialModel, Init}
-    region                    :: Function
-    density                   :: Float64
-    model                     :: Model
-    init                      :: Init
-    friction_with_rigidbodies :: VV{Vec{2, Float64}} # Vec{2}(μ, c)
-end
-
-function convert_input(input::TOMLInput_Material, ::Val{:friction_with_rigidbodies})::VV{Vec{2, Float64}}
-    μ = input.friction_with_rigidbodies
-    c = input.friction_threshold_with_rigidbodies.content
-    c = isempty(c) ? [fill(0.0, length(x)) for x in μ] : c
-    [[Vec(y) for y in zip(x...)] for x in zip(μ, c)]
+    region  :: Function
+    density :: Float64
+    model   :: Model
+    init    :: Init
 end
 
 #############
@@ -204,14 +206,9 @@ end
 Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLTable
     thickness                           :: Float64
     density                             :: Float64
-    poissons_ratio                      :: Float64                = NaN
-    K0                                  :: Float64                = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    poissons_ratio                      :: Float64       = NaN
+    K0                                  :: Float64       = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
     model                               :: MaterialModel
-    friction_with_rigidbodies           :: VV{Float64}            = []
-    friction_threshold_with_rigidbodies :: SkipEntry{VV{Float64}} = []
-    function TOMLInput_SoilLayer(region, density, poissons_ratio, K0, model, friction_with_rigidbodies, friction_threshold_with_rigidbodies)
-        new(region, density, poissons_ratio, K0, model, map(wrap, friction_with_rigidbodies), map(wrap, friction_threshold_with_rigidbodies))
-    end
 end
 
 mutable struct Input_SoilLayer{Model <: MaterialModel}
@@ -220,14 +217,6 @@ mutable struct Input_SoilLayer{Model <: MaterialModel}
     poissons_ratio            :: Float64
     K0                        :: Float64
     model                     :: Model
-    friction_with_rigidbodies :: VV{Vec{2, Float64}} # Vec{2}(μ, c)
-end
-
-function convert_input(input::TOMLInput_SoilLayer, ::Val{:friction_with_rigidbodies})::VV{Vec{2, Float64}}
-    μ = input.friction_with_rigidbodies
-    c = input.friction_threshold_with_rigidbodies.content
-    c = isempty(c) ? [fill(0.0, length(x)) for x in μ] : c
-    [[Vec(y) for y in zip(x...)] for x in zip(μ, c)]
 end
 
 ##############################
@@ -305,6 +294,20 @@ end
 # RigidBody #
 #############
 
+Base.@kwdef mutable struct TOMLInput_RigidBody_Friction <: TOMLTable
+    coefficient :: Vector{Float64}
+    cohesion    :: Vector{Float64} = []
+    function TOMLInput_RigidBody_Friction(coefficient, cohesion)
+        new(wrap(coefficient), wrap(cohesion))
+    end
+end
+function convert_input(input::TOMLInput_RigidBody_Friction)
+    μ = input.coefficient
+    c = input.cohesion
+    c = isempty(c) ? fill(0.0, length(μ)) : c
+    [Vec(x) for x in zip(μ, c)]
+end
+
 Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
     control          :: Bool            = true
     density          :: Float64         = control ? Inf : _undefkey(:density)
@@ -312,7 +315,8 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
     angular_velocity :: ToVec           = nothing
     body_force       :: ToVec           = nothing
     model            :: GeometricObject
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}) where {dim}
+    Friction         :: Vector{TOMLInput_RigidBody_Friction}
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}, friction) where {dim}
         control                     && (density = Inf)
         isnothing(velocity)         && (velocity = zeros(dim))
         isnothing(angular_velocity) && (angular_velocity = zeros(3))
@@ -320,10 +324,10 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
         model.m = density * area(model) # TODO: use volume for 3D
         model.v = velocity
         model.ω = angular_velocity
-        new(control, density, velocity, angular_velocity, body_force, model)
+        new(control, density, velocity, angular_velocity, body_force, model, friction)
     end
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model)
-        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model))
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model, friction)
+        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model), friction)
     end
 end
 
@@ -334,6 +338,7 @@ mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
     angular_velocity :: Vec{3, Float64}
     body_force       :: Vec{dim, Float64}
     model            :: Model
+    frictions        :: Vector{Vector{Vec{2, Float64}}}
 end
 
 # Polygon

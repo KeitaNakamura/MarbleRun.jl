@@ -30,7 +30,6 @@ copy_inputfile = true
 [[Material]]
 region = "(x,y) -> true"
 density = 1.0e3       # (kg/m3)
-friction_with_rigidbodies = [inf] # no-slip boundary
 [Material.model.NewtonianFluid]
 pressure_ref = 100.0      # (N/m2)   <10.0>
 density_ref = 1.0e3       # (kg/m3)
@@ -46,6 +45,8 @@ body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
 [RigidBody.model.Circle]
 centroid = [0.01, 0.04]
 radius = 1.25e-3 # (m)
+[[RigidBody.Friction]]
+coefficient = inf # no-slip boundary
 
 [Advanced]
 npoints_in_cell = 2 # in each dimension  <4>
