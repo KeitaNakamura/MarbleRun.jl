@@ -4,9 +4,9 @@
 [General]
 type = "FreeRun"
 coordinate_system = "plane_strain" # plane_strain or axisymmetric
-domain = [[0.0, 5.0], [0.0, 5.1]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space = 0.1   # (m)
-gravity = 0.0      # (m/s2)
+domain = [[0.0, 5.0], [0.0, 5.1]]  # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space = 0.1                   # (m)
+gravity = 0.0                      # (m/s2)
 interpolation = "KernelCorrection(QuadraticBSpline())"
 show_progress = false
 
@@ -21,7 +21,7 @@ velocity = [0.0, -4.0e-3]
 output = true
 
 [Phase]
-time_stop = 0.1    # (sec)
+time_stop = 0.1 # (sec)
 CFL = 1.0
 
 [Output]
@@ -35,17 +35,17 @@ copy_inputfile = true
 
 [[Material]]
 region = "(x, y) -> y < 5.0"
-density = 1e3 # (kg/m3)
+density = 1e3                      # (kg/m3)
 [Material.model.DruckerPrager]
 mohr_coulomb_type = "plane_strain"
 poissons_ratio = 0.3
-youngs_modulus = 1e9 # (N/m2)
-cohesion = 10e3 # (N/m2)
-friction_angle = 0.0   # (degree)
-dilatancy_angle = 0.0 # (degree)
+youngs_modulus = 1e9               # (N/m2)
+cohesion = 10e3                    # (N/m2)
+friction_angle = 0.0               # (degree)
+dilatancy_angle = 0.0              # (degree)
 tension_cutoff = inf
 [Material.init.K0]
-poissons_ratio = 0.3 # K0 is calculated from poisson's ratio
+poissons_ratio = 0.3               # K0 is calculated from poisson's ratio
 height_ref = 5.0
 
 [Advanced]

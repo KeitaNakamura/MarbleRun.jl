@@ -2,14 +2,14 @@
 
 [General]
 type = "PenetrateIntoGround"
-coordinate_system = "axisymmetric" # plane_strain or axisymmetric
+coordinate_system = "axisymmetric"  # plane_strain or axisymmetric
 domain = [[0.0, 10.0], [0.0, 15.1]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space = 0.5   # (m)
-gravity = 9.81     # (m/s2)
+grid_space = 0.5                    # (m)
+gravity = 9.81                      # (m/s2)
 show_progress = false
 
 [Phase]
-time_stop = 4.5  # (sec)
+time_stop = 4.5 # (sec)
 CFL = 0.5
 
 [Output]
@@ -22,16 +22,16 @@ paraview_grid = true
 copy_inputfile = true
 
 [[SoilLayer]]
-thickness = 15.0 # (m)
-density = 0.89e3 # (kg/m3)
-poissons_ratio = 0.49 # K0 is calculated from poisson's ratio
+thickness = 15.0                    # (m)
+density = 0.89e3                    # (kg/m3)
+poissons_ratio = 0.49               # K0 is calculated from poisson's ratio
 [SoilLayer.model.DruckerPrager]
 mohr_coulomb_type = "circumscribed"
 poissons_ratio = 0.49
-youngs_modulus = 10e6 # (N/m2)
-cohesion = 10e3 # (N/m2)
-friction_angle = 0.0   # (degree)
-dilatancy_angle = 0.0 # (degree)
+youngs_modulus = 10e6               # (N/m2)
+cohesion = 10e3                     # (N/m2)
+friction_angle = 0.0                # (degree)
+dilatancy_angle = 0.0               # (degree)
 tension_cutoff = 0.0
 
 [[RigidBody]]

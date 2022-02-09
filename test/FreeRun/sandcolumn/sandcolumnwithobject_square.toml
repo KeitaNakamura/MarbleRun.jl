@@ -3,15 +3,15 @@
 [General]
 type = "FreeRun"
 coordinate_system = "plane_strain" # plane_strain
-domain = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space = 0.01  # (m) <0.001>
-gravity = 9.81     # (m/s2)
+domain = [[0.0, 1.0], [0.0, 1.0]]  # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space = 0.01                  # (m) <0.001>
+gravity = 9.81                     # (m/s2)
 interpolation = "KernelCorrection(QuadraticBSpline())"
 transfer = ["normal", "FLIP"]
 show_progress = false
 
 [Phase]
-time_stop = 0.5  # (sec) <1.0>
+time_stop = 0.5 # (sec) <1.0>
 CFL = 1.0
 
 [BoundaryCondition]
@@ -27,14 +27,14 @@ copy_inputfile = true
 
 [[Material]]
 region = "(x,y) -> 0.0 < x < 0.15 && y < 0.3"
-density = 2.7e3       # (kg/m3)
+density = 2.7e3                    # (kg/m3)
 [Material.model.DruckerPrager]
 mohr_coulomb_type = "plane_strain"
 poissons_ratio = 0.3
-youngs_modulus = 1e6  # (N/m2)
-cohesion = 0.0        # (N/m2)
-friction_angle = 30.0 # (degree)
-dilatancy_angle = 0.0 # (degree)
+youngs_modulus = 1e6               # (N/m2)
+cohesion = 0.0                     # (N/m2)
+friction_angle = 30.0              # (degree)
+dilatancy_angle = 0.0              # (degree)
 tension_cutoff = 0.0
 [Material.init.K0]
 poissons_ratio = 0.3
@@ -42,10 +42,10 @@ height_ref = 0.3
 
 [[RigidBody]]
 control = false
-density = 1.20e3 # (kg/m3)
+density = 1.20e3         # (kg/m3)
 [RigidBody.model.Square]
 centroid = [0.075, 0.15]
-radius = 0.02    # (m)
+radius = 0.02            # (m)
 angle = 45
 [[RigidBody.Friction]]
 coefficient = 0.3

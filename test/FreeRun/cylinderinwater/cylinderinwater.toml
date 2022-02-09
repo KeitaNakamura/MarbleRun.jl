@@ -3,14 +3,14 @@
 
 [General]
 type = "FreeRun"
-coordinate_system = "plane_strain" # plane_strain
+coordinate_system = "plane_strain"  # plane_strain
 domain = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space = 0.2e-3 # (m)     <0.08e-3>
-gravity    = 0.0    # (m/s2)
+grid_space = 0.2e-3                 # (m) <0.08e-3>
+gravity    = 0.0                    # (m/s2)
 show_progress = false
 
 [Phase]
-time_stop = 0.01   # (sec)   <1.0>
+time_stop = 0.01 # (sec) <1.0>
 CFL = 0.5
 
 [BoundaryCondition] # slip -> 0, friction -> 0 < coef < inf, sticky -> inf
@@ -20,7 +20,7 @@ top = inf
 bottom = inf
 
 [Output]
-time_interval = 0.002 # (sec)  <0.01>
+time_interval = 0.002 # (sec) <0.01>
 directory = "output.tmp"
 snapshots = true
 paraview = true
@@ -29,26 +29,26 @@ copy_inputfile = true
 
 [[Material]]
 region = "(x,y) -> true"
-density = 1.0e3       # (kg/m3)
+density = 1.0e3                 # (kg/m3)
 [Material.model.NewtonianFluid]
-pressure_ref = 100.0      # (N/m2)   <10.0>
-density_ref = 1.0e3       # (kg/m3)
-speed_of_sound = 1.0  # (m/s)
-viscosity = 0.01      # (Pa⋅s)
+pressure_ref = 100.0            # (N/m2) <10.0>
+density_ref = 1.0e3             # (kg/m3)
+speed_of_sound = 1.0            # (m/s)
+viscosity = 0.01                # (Pa⋅s)
 [Material.init.Uniform]
-mean_stress = -100.0 # (N/m2)   <-10.0>
+mean_stress = -100.0            # (N/m2) <-10.0>
 
 [[RigidBody]]
-density = 1.25e3 # (kg/m3)
+density = 1.25e3             # (kg/m3)
 control = false
 body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
 [RigidBody.model.Circle]
 centroid = [0.01, 0.04]
-radius = 1.25e-3 # (m)
+radius = 1.25e-3             # (m)
 [[RigidBody.Friction]]
-coefficient = inf # no-slip boundary
+coefficient = inf            # no-slip boundary
 
 [Advanced]
-npoints_in_cell = 2 # in each dimension  <4>
+npoints_in_cell = 2 # in each dimension <4>
 contact_threshold_scale = 1.0
 contact_penalty_parameter = 0.0
