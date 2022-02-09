@@ -342,22 +342,52 @@ mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
 end
 
 # Polygon
-
 Base.@kwdef mutable struct TOMLInput_RigidBody_model_Polygon <: TOMLTable
     coordinates :: Vector{Vector{Float64}}
 end
-
 function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Polygon)
     GeometricObject(Polygon(Vec{2}.(model.coordinates)...))
 end
 
-# Circle
+# Square
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Square <: TOMLTable
+    centroid :: Vector{Float64}
+    radius   :: Float64
+    angle    :: Float64         = 0.0
+end
+function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Square)
+    centroid = model.centroid
+    radius = model.radius
+    angle = model.angle
+    d = radius / √2
+    corner1 = centroid + Vec(-d, -d)
+    corner2 = centroid + Vec( d, -d)
+    corner3 = centroid + Vec( d,  d)
+    corner4 = centroid + Vec(-d,  d)
+    GeometricObject(rotate(Polygon(corner1, corner2, corner3, corner4), deg2rad(angle)))
+end
 
+# Triangle
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Triangle <: TOMLTable
+    centroid :: Vector{Float64}
+    radius   :: Float64
+    angle    :: Float64         = 0.0
+end
+function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Triangle)
+    centroid = model.centroid
+    radius = model.radius
+    angle = model.angle
+    x1 = centroid + radius * Vec(-√3/2, -1/2)
+    x2 = centroid + radius * Vec( √3/2, -1/2)
+    x3 = centroid + Vec(0, radius)
+    GeometricObject(rotate(Polygon(x1, x2, x3), deg2rad(angle)))
+end
+
+# Circle
 Base.@kwdef mutable struct TOMLInput_RigidBody_model_Circle <: TOMLTable
     centroid :: Vector{Float64}
     radius   :: Float64
 end
-
 function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Circle)
     GeometricObject(Circle(Vec{2}(model.centroid), model.radius))
 end
