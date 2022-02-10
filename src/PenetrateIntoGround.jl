@@ -159,18 +159,23 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
     update!(logger, t)
     writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
 
-    while !isfinised(logger, t)
-        dt = phase.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
-            PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
-        end
-        PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, dt, input, phase)
-        update!(logger, t += dt)
-        if islogpoint(logger)
-            if input.Advanced.reorder_pointstate
-                Poingr.reorder_pointstate!(pointstate, cache)
+    try
+        while !isfinised(logger, t)
+            dt = phase.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
+                PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
             end
-            writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
+            PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, dt, input, phase)
+            update!(logger, t += dt)
+            if islogpoint(logger)
+                if input.Advanced.reorder_pointstate
+                    Poingr.reorder_pointstate!(pointstate, cache)
+                end
+                writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
+            end
         end
+    catch e
+        writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, "error")
+        rethrow()
     end
 
     t
@@ -184,7 +189,7 @@ function writeoutput(
         rigidbody::GeometricObject,
         rigidbody0::GeometricObject,
         t::Real,
-        output_index::Int,
+        output_index,
     )
     if input.Output.paraview
         compress = true
