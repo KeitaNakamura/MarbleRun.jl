@@ -13,20 +13,20 @@ function safe_minimum(f, iter)
     ret
 end
 
-function timestep(model::DruckerPrager, p, dx) # currently support only LinearElastic
-    ρ = p.m / p.V
-    v = norm(p.v)
+function timestep(model::DruckerPrager, pt, dx) # currently support only LinearElastic
+    ρ = pt.m / pt.V
+    v = norm(pt.v)
     vc = matcalc(Val(:sound_speed), model.elastic.K, model.elastic.G, ρ)
-    dx / (vc + min(v, vc)) # set limit of `v` as `vc` to prevent using too high velocity
+    dx / (vc + v)
 end
 
 # https://doi.org/10.1016/j.ijnonlinmec.2011.10.007
-function timestep(model::NewtonianFluid, p, dx)
-    ρ = p.m / p.V
+function timestep(model::NewtonianFluid, pt, dx)
+    ρ = pt.m / pt.V
     ν = model.μ / ρ # kinemtatic viscosity
-    v = norm(p.v)
+    v = norm(pt.v)
     vc = model.pressure_model.c # speed of sound
-    min(dx/(vc+v), dx^2/ν)
+    min(dx / (vc + v), dx^2 / ν)
 end
 
 ##########################################
