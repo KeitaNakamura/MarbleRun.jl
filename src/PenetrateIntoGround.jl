@@ -7,33 +7,6 @@ using GeometricObjects
 
 using Serialization
 
-struct NodeState
-    m::Float64
-    m′::Float64
-    v::Vec{2, Float64}
-    v_n::Vec{2, Float64}
-    m_contacted::Float64
-    vᵣ::Vec{2, Float64}
-    fc::Vec{2, Float64}
-    d::Vec{2, Float64}
-    μ::Vec{2, Float64} # [μ, c]
-end
-
-struct PointState
-    m::Float64
-    V::Float64
-    x::Vec{2, Float64}
-    v::Vec{2, Float64}
-    b::Vec{2, Float64}
-    σ::SymmetricSecondOrderTensor{3, Float64, 6}
-    ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
-    ∇v::SecondOrderTensor{3, Float64, 9}
-    C::Mat{2, 3, Float64, 6}
-    r::Vec{2, Float64}
-    index::Int
-    matindex::Int
-end
-
 function preprocess_input!(input::Input)
     input.Material = input.SoilLayer
     input.BoundaryCondition.left   = Contact(:slip)
@@ -50,6 +23,33 @@ function preprocess_input!(input::Input)
 end
 
 function initialize(input::Input)
+
+    NodeState = @NamedTuple begin
+        m::Float64
+        m′::Float64
+        v::Vec{2, Float64}
+        v_n::Vec{2, Float64}
+        m_contacted::Float64
+        vᵣ::Vec{2, Float64}
+        fc::Vec{2, Float64}
+        d::Vec{2, Float64}
+        μ::Vec{2, Float64} # [μ, c]
+    end
+    PointState = @NamedTuple begin
+        m::Float64
+        V::Float64
+        x::Vec{2, Float64}
+        v::Vec{2, Float64}
+        b::Vec{2, Float64}
+        σ::SymmetricSecondOrderTensor{3, Float64, 6}
+        ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
+        ∇v::SecondOrderTensor{3, Float64, 9}
+        C::Mat{2, 3, Float64, 6}
+        r::Vec{2, Float64}
+        index::Int
+        matindex::Int
+    end
+
     # General
     coordinate_system = input.General.coordinate_system
     (xmin, xmax), (ymin, ymax) = input.General.domain
