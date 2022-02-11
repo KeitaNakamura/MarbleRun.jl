@@ -14,7 +14,7 @@ CFL = 0.5
 update_motion = false
 
 [[Phase]]
-time_stop = 3.0 # (sec) <6.0>
+time_stop = 3.0 # (sec) <5.0>
 CFL = 0.1
 
 [Output]
@@ -27,14 +27,14 @@ copy_inputfile = true
 
 [[Material]]
 region = "(x,y) -> x < 1.2 && y < 0.6"
-density = 1.0e3                        # (kg/m3)
+density = 1.0e3                 # (kg/m3)
 [Material.model.NewtonianFluid]
-density_ref  = 1.0e3                   # (kg/m3)
-pressure_ref = 0.0                     # (N/m2)
-speed_of_sound = 60.0                  # (m/s)
-viscosity = 1.01e-3                    # (Pa⋅s)
+density_ref  = 1.0e3            # (kg/m3)
+pressure_ref = 0.0              # (N/m2)
+speed_of_sound = 60.0           # (m/s)
+viscosity = 1.01e-3             # (Pa⋅s)
 [Material.init.Uniform]
-mean_stress = 0.0                      # (N/m2)
+mean_stress = 0.0               # (N/m2)
 
 [Advanced]
 npoints_in_cell = 2 # in each dimension
