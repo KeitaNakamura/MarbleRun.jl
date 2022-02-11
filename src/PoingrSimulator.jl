@@ -10,6 +10,7 @@ using Base: @_propagate_inbounds_meta, @_inline_meta
 
 include("input.jl")
 include("methods.jl")
+include("dem.jl")
 include("PenetrateIntoGround.jl")
 include("FreeRun.jl")
 

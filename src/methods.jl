@@ -99,7 +99,7 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase)
+function advancestep!(grid::Grid{dim}, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
@@ -118,7 +118,14 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
 
     # Point-to-grid transfer
     P2G!(grid, pointstate, cache, dt, input)
-    for (rigidbody, input_rigidbody) in zip(rigidbodies, input.RigidBody)
+
+    # Compute contact forces between rigid bodies
+    contact_forces = fill(zero(Vec{dim}), length(rigidbodies))
+    contact_moments = fill(zero(Vec{3}), length(rigidbodies))
+    compute_contact_forces_moments!(contact_forces, contact_moments, rigidbodies, grid, dt, input)
+
+    # Point-to-grid transfer for contact and update positions of rigid bodies
+    for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
         mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, input_rigidbody.frictions, α, ξ)
@@ -132,7 +139,7 @@ function advancestep!(grid::Grid, pointstate::AbstractVector, rigidbodies, cache
                 inds = findall(mask)
                 Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
                 Fc += rigidbody.m * Vec(0,-g) + b
-                GeometricObjects.update!(rigidbody, Fc, Mc, dt)
+                GeometricObjects.update!(rigidbody, contact_forces[i]+Fc, contact_moments[i]+Mc, dt)
             end
         end
     end
@@ -312,6 +319,33 @@ function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
     n == Vec( 0,  1) && (side = :top)
     contact = getproperty(bc, side)
     v + contact(v, n)
+end
+
+##################################
+# contact forces/moments for DEM #
+##################################
+
+function compute_contact_forces_moments!(contact_forces::Vector, contact_moments::Vector, rigidbodies, grid, dt, input)
+    @assert length(contact_forces) == length(contact_moments) == length(rigidbodies) == length(input.RigidBody)
+    @inbounds for (i, rigidbody1) in enumerate(rigidbodies)
+        input.RigidBody[i].control && continue
+        for rigidbody2 in rigidbodies
+            if rigidbody1 !== rigidbody2
+                vals = compute_contactforce_position(rigidbody1, rigidbody2, dt, input)
+                if vals !== nothing
+                    fc, x = vals
+                    contact_forces[i] += fc
+                    contact_moments[i] += (x - centroid(rigidbody1)) × fc
+                end
+            end
+        end
+        vals = compute_contactforce_position(rigidbody1, grid, dt, input)
+        if vals !== nothing
+            fc, x = vals
+            contact_forces[i] += fc
+            contact_moments[i] += (x - centroid(rigidbody1)) × fc
+        end
+    end
 end
 
 ##########
