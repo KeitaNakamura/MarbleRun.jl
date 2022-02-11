@@ -15,19 +15,20 @@ include("FreeRun.jl")
 
 
 function main(tomlfile::AbstractString)
+    @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
     project = dirname(tomlfile)
     injection_file = joinpath(project, "injection.jl")
-    main(tomlfile, isfile(injection_file) ? include(injection_file) : Module())
+    filename = first(splitext(basename(tomlfile)))
+    main(
+        read(tomlfile, String),
+        isfile(injection_file) ? include(injection_file) : Module();
+        project,
+        default_outdir = string(filename, ".tmp"),
+    )
 end
 
-function main(tomlfile::AbstractString, Injection::Module)
-    project = dirname(tomlfile)
-    inputtoml = read(tomlfile, String)
-    main(project, inputtoml, Injection)
-end
-
-function main(project::AbstractString, inputtoml::AbstractString, Injection::Module)
-    input = parse_input(inputtoml; project)
+function main(inputtoml::AbstractString, Injection::Module; project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
+    input = parse_input(inputtoml; project, default_outdir)
     input.Injection = Injection
     mkpath(input.Output.directory)
     if input.Output.copy_inputfile

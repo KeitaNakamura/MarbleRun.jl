@@ -12,14 +12,13 @@ show_progress = false
 [Phase]
 time_stop = 0.6
 CFL = 1.0
-restart = "output.tmp/snapshots/snapshot30"
+restart = "sandcolumn.tmp/snapshots/snapshot30"
 
 [BoundaryCondition]
 bottom = 0.2
 
 [Output]
 time_interval = 0.01 # (sec)
-directory = "output_restart.tmp"
 snapshots = true
 paraview = true
 paraview_grid = true

@@ -21,7 +21,6 @@ bottom = inf
 
 [Output]
 time_interval = 0.002 # (sec) <0.01>
-directory = "output.tmp"
 snapshots = true
 paraview = true
 paraview_grid = true

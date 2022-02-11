@@ -14,7 +14,6 @@ CFL = 1.0
 
 [Output]
 time_interval = 0.01 # (sec)
-directory = "output.tmp"
 history = false
 snapshots = true
 paraview = true

@@ -11,11 +11,10 @@ show_progress = false
 [Phase]
 time_stop = 0.2 # (sec)
 CFL = 0.5
-restart = "output.tmp/snapshots/snapshot5"
+restart = "short_pile.tmp/snapshots/snapshot5"
 
 [Output]
 time_interval = 0.02 # (sec)
-directory = "output_restart.tmp"
 history = true
 snapshots = true
 paraview = true

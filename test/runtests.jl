@@ -121,7 +121,9 @@ end
     for (root, dirs, files) in walkdir(module_name)
         for file in files
             path = joinpath(root, file)
-            splitext(dirname(path))[2] != ".tmp" && endswith(path, ".toml") && check_results(path)
+            if endswith(path, ".toml") && !endswith(dirname(path), ".tmp")
+                check_results(path)
+            end
         end
     end
 end

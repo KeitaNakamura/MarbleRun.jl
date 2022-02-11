@@ -3,9 +3,12 @@ using Poingr: Interpolation
 using GeometricObjects
 using TOML
 
-function parse_input(str::AbstractString; project = ".")
+function parse_input(str::AbstractString; project = ".", default_outdir = "output.tmp")
     input = convert_input(TOMLInput(TOML.parse(str)))
     input.project = project
+    if isempty(input.Output.directory)
+        input.Output.directory = default_outdir
+    end
     input.Output.directory = joinpath(input.project, input.Output.directory)
 
     # RigidBody
@@ -25,7 +28,11 @@ function parse_input(str::AbstractString; project = ".")
     input.General.type.preprocess_input!(input)
     input
 end
-parse_inputfile(path::AbstractString) = parse_input(read(path, String); project = dirname(path))
+function parse_inputfile(tomlfile::AbstractString)
+    @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
+    filename = first(splitext(basename(tomlfile)))
+    input = parse_input(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
+end
 
 abstract type TOMLTable end
 
@@ -160,7 +167,7 @@ end
 
 Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
     time_interval  :: Float64
-    directory      :: String  = "output.tmp"
+    directory      :: String  = ""
     snapshots      :: Bool    = false
     paraview       :: Bool    = true
     paraview_grid  :: Bool    = false
