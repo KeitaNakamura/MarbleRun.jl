@@ -11,8 +11,8 @@ transfer = ["normal", "FLIP"]
 show_progress = false
 
 [Phase]
-time_stop = 0.5 # (sec) <1.0>
-CFL = 0.8
+time_stop = 0.25 # (sec) <1.0>
+CFL = 1.0
 
 [BoundaryCondition]
 bottom = 0.3
