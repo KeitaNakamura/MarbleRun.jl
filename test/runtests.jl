@@ -94,6 +94,20 @@ function check_results(tomlfile::String)
                 end
             end
         end
+
+        # rigidbodies
+        if any(d -> d.output, input.RigidBody) && startswith(tomlfile, "FreeRun")
+            RigidBody = input.RigidBody
+            for i in eachindex(RigidBody)
+                rigidbody = RigidBody[i]
+                if rigidbody.output
+                    expected = joinpath(output_dir, "rigidbodies", "$i", "history.csv")
+                    src = joinpath(proj_dir, "output", "$(testname)_rigidbody_$i.csv")
+                    fix_results ? fix_history(expected, src) :
+                                  check_history(expected, src)
+                end
+            end
+        end
     end
 end
 
