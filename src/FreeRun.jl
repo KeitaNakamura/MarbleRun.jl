@@ -72,7 +72,7 @@ function initialize(input::Input)
     t, grid, pointstate, rigidbodies
 end
 
-function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbodies)
+function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, rigidbodies) where {dim}
 
     # General/Output
     dx = input.General.grid_space
@@ -105,6 +105,24 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbodies
                 mkpath(dir)
                 history_file = joinpath(dir, "history.csv")
                 write(history_file, "disp,force\n")
+            end
+        end
+    end
+    if any(d -> d.output, input.RigidBody)
+        RigidBody = input.RigidBody
+        for i in eachindex(RigidBody)
+            if RigidBody[i].output
+                dir = joinpath(outdir, "rigidbodies", "$i")
+                mkpath(dir)
+                history_file = joinpath(dir, "history.csv")
+                header = [
+                    "t"
+                    ["x_$i" for i in 1:dim]
+                    ["v_$i" for i in 1:dim]
+                    ["ω_$i" for i in 1:3]
+                    ["attitude_$i" for i in 1:3]
+                ]
+                write(history_file, join(header, ",") * "\n")
             end
         end
     end
@@ -198,6 +216,25 @@ function writeoutput(
                     disp = dirichlet.displacement
                     force = dirichlet.reaction_force
                     write(io, join([disp, force], ",") * "\n")
+                end
+            end
+        end
+    end
+
+    if any(d -> d.output, input.RigidBody)
+        RigidBody = input.RigidBody
+        for i in eachindex(RigidBody)
+            if RigidBody[i].output
+                history_file = joinpath(input.Output.directory, "rigidbodies", "$i", "history.csv")
+                open(history_file, "a") do io
+                    values = [
+                        t
+                        centroid(rigidbodies[i])
+                        rigidbodies[i].v
+                        rigidbodies[i].ω
+                        attitude(rigidbodies[i])
+                    ]
+                    write(io, join(values, ",") * "\n")
                 end
             end
         end

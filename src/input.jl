@@ -323,7 +323,8 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
     body_force       :: ToVec           = nothing
     model            :: GeometricObject
     Friction         :: Vector{TOMLInput_RigidBody_Friction}
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}, friction) where {dim}
+    output           :: Bool = true
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}, friction, output) where {dim}
         control                     && (density = Inf)
         isnothing(velocity)         && (velocity = zeros(dim))
         isnothing(angular_velocity) && (angular_velocity = zeros(3))
@@ -331,10 +332,10 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
         model.m = density * area(model) # TODO: use volume for 3D
         model.v = velocity
         model.ω = angular_velocity
-        new(control, density, velocity, angular_velocity, body_force, model, friction)
+        new(control, density, velocity, angular_velocity, body_force, model, friction, output)
     end
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model, friction)
-        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model), friction)
+    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model, friction, output)
+        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model), friction, output)
     end
 end
 
@@ -346,6 +347,7 @@ mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
     body_force       :: Vec{dim, Float64}
     model            :: Model
     frictions        :: Vector{Vector{Vec{2, Float64}}}
+    output           :: Bool
 end
 
 # Polygon
