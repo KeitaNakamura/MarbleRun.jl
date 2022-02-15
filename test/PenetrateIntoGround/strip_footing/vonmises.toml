@@ -9,7 +9,7 @@ grid_space = 0.05                  # (m)
 gravity = 0.0                      # (m/s2)
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.04 # (sec)
 CFL = 1.0
 
@@ -35,6 +35,7 @@ dilatancy_angle = 0.0              # (degree)
 tension_cutoff = inf
 
 [[RigidBody]]
+[[RigidBody.Phase]]
 velocity = [0.0, -0.1] # (m/s)
 [RigidBody.model.Polygon]
 coordinates = [[0.0, 0.0], [0.5, 0.0], [0.5, 0.1], [0.0, 0.1]]

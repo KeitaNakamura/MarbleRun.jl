@@ -20,7 +20,7 @@ inbounds = "(x, y) -> x ≤ 0.5 && 5.0 ≤ y ≤ 5.1"
 velocity = [0.0, -4.0e-3]
 output = true
 
-[Phase]
+[[Phase]]
 time_stop = 0.1 # (sec)
 CFL = 1.0
 

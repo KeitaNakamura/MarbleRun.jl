@@ -19,92 +19,87 @@ function check_results(tomlfile::String)
         @time PoingrSimulator.main(tomlfile)
 
         input = PoingrSimulator.parse_inputfile(tomlfile)
-        proj_dir = input.project
-        output_dir = input.Output.directory
+        for phase_index in 1:length(input.Phase)
+            proj_dir = input.project
+            output_dir = joinpath(input.Output.directory, string(phase_index))
 
-        restart_case = !isa(input.Phase, Vector) && !isempty(input.Phase.restart)
+            restart_case = !isempty(input.Phase[phase_index].restart)
 
-        # for restart
-        testname = first(splitext(basename(tomlfile)))
-        if restart_case
-            testname = replace(testname, "_restart" => "")
-        end
-
-        # for multiple phases
-        if input.Phase isa Vector
-            output_dir = joinpath(output_dir, string(length(input.Phase)))
-        end
-
-        # vtk files
-        vtk_file = joinpath(
-            "paraview",
-            sort(
-                filter(
-                    file -> endswith(file, "_1.vtu"),
-                    only(walkdir(joinpath(output_dir, "paraview")))[3]
-                ),
-                lt = natural
-            )[end],
-        )
-
-        if fix_results
-            cp(joinpath(output_dir, vtk_file),
-               joinpath(proj_dir, "output", "$testname.vtu"); force = true)
-        elseif !restart_case
-            # check results
-            expected = VTKFile(joinpath(proj_dir, "output", "$testname.vtu")) # expected output
-            result = VTKFile(joinpath(output_dir, vtk_file))
-            expected_points = get_points(expected)
-            result_points = get_points(result)
-            @test size(expected_points) == size(result_points)
-            @test all(eachindex(expected_points)) do i
-                norm(expected_points[i] - result_points[i]) < 0.05*input.General.grid_space
+            # for restart
+            testname = first(splitext(basename(tomlfile)))
+            if restart_case
+                testname = replace(testname, "_restart" => "")
             end
-        end
+            testname *= "_$phase_index"
 
-        # snapshots file
-        if !fix_results && input.Output.snapshots == true
-            root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
-            count = 0
-            for file in sort(files, lt = natural)
-                @test file == "snapshot$count"
-                @test deserialize(joinpath(root, file)) isa NamedTuple
-                count += 1
-            end
-        end
+            # vtk files
+            vtk_file = joinpath(
+                "paraview",
+                sort(
+                    filter(
+                        file -> endswith(file, "_1.vtu"),
+                        only(walkdir(joinpath(output_dir, "paraview")))[3]
+                    ),
+                    lt = natural
+                )[end],
+            )
 
-        # test history.csv if exists
-        if isfile(joinpath(output_dir, "history.csv")) && !restart_case
-            expected = joinpath(output_dir, "history.csv")
-            src = joinpath(proj_dir, "output", "$testname.csv")
-            fix_results ? fix_history(expected, src) :
-                          check_history(expected, src)
-        end
-
-        # dirichlet
-        if any(d -> d.output, input.BoundaryCondition.Dirichlet)
-            Dirichlet = input.BoundaryCondition.Dirichlet
-            for i in eachindex(Dirichlet)
-                dirichlet = Dirichlet[i]
-                if dirichlet.output
-                    expected = joinpath(output_dir, "dirichlet", "$i", "history.csv")
-                    src = joinpath(proj_dir, "output", "$(testname)_diriclet_$i.csv")
-                    fix_results ? fix_history(expected, src) :
-                                  check_history(expected, src)
+            if fix_results
+                cp(joinpath(output_dir, vtk_file),
+                   joinpath(proj_dir, "output", "$testname.vtu"); force = true)
+            elseif !restart_case
+                # check results
+                expected = VTKFile(joinpath(proj_dir, "output", "$testname.vtu")) # expected output
+                result = VTKFile(joinpath(output_dir, vtk_file))
+                expected_points = get_points(expected)
+                result_points = get_points(result)
+                @test size(expected_points) == size(result_points)
+                @test all(eachindex(expected_points)) do i
+                    norm(expected_points[i] - result_points[i]) < 0.05*input.General.grid_space
                 end
             end
-        end
 
-        # rigidbodies
-        if any(d -> d.output, input.RigidBody) && startswith(tomlfile, "FreeRun")
-            RigidBody = input.RigidBody
-            for i in eachindex(RigidBody)
-                rigidbody = RigidBody[i]
-                if rigidbody.output
-                    expected = joinpath(output_dir, "rigidbodies", "$i", "history.csv")
-                    src = joinpath(proj_dir, "output", "$(testname)_rigidbody_$i.csv")
-                    fix_results ? fix_history(expected, src) :
-                                  check_history(expected, src)
+            # snapshots file
+            if !fix_results && input.Output.snapshots == true
+                root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
+                count = 0
+                for file in sort(files, lt = natural)
+                    @test file == "snapshot$count"
+                    @test deserialize(joinpath(root, file)) isa NamedTuple
+                    count += 1
+                end
+            end
+
+            # test history.csv if exists
+            if isfile(joinpath(output_dir, "history.csv")) && !restart_case
+                expected = joinpath(output_dir, "history.csv")
+                src = joinpath(proj_dir, "output", "$testname.csv")
+                fix_results ? fix_history(expected, src) : check_history(expected, src)
+            end
+
+            # dirichlet
+            if any(d -> d.output, input.BoundaryCondition.Dirichlet)
+                Dirichlet = input.BoundaryCondition.Dirichlet
+                for i in eachindex(Dirichlet)
+                    dirichlet = Dirichlet[i]
+                    if dirichlet.output
+                        expected = joinpath(output_dir, "dirichlet", "$i", "history.csv")
+                        src = joinpath(proj_dir, "output", "$(testname)_diriclet_$i.csv")
+                        fix_results ? fix_history(expected, src) : check_history(expected, src)
+                    end
+                end
+            end
+
+            # rigidbodies
+            if any(d -> d.output, input.RigidBody) && startswith(tomlfile, "FreeRun")
+                RigidBody = input.RigidBody
+                for i in eachindex(RigidBody)
+                    rigidbody = RigidBody[i]
+                    if rigidbody.output
+                        expected = joinpath(output_dir, "rigidbodies", "$i", "history.csv")
+                        src = joinpath(proj_dir, "output", "$(testname)_rigidbody_$i.csv")
+                        fix_results ? fix_history(expected, src) : check_history(expected, src)
+                    end
                 end
             end
         end

@@ -9,7 +9,7 @@ grid_space = 0.2e-3                 # (m) <0.08e-3>
 gravity    = 0.0                    # (m/s2)
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.01 # (sec) <1.0>
 CFL = 0.5
 
@@ -39,6 +39,7 @@ mean_stress = -100.0            # (N/m2) <-10.0>
 
 [[RigidBody]]
 density = 1.25e3             # (kg/m3)
+[[RigidBody.Phase]]
 control = false
 body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
 [RigidBody.model.Circle]

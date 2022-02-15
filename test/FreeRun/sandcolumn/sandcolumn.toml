@@ -9,7 +9,7 @@ gravity = 9.81                       # (m/s2)
 interpolation = "QuadraticBSpline()"
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.6 # (sec)
 CFL = 1.0
 

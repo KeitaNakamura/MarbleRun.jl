@@ -8,7 +8,7 @@ grid_space = 0.01                  # (m) <0.001>
 gravity = 9.81                     # (m/s2)
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.4 # (sec) <1.0>
 CFL = 1.0
 
@@ -38,8 +38,9 @@ poissons_ratio = 0.3
 height_ref = 0.3
 
 [[RigidBody]]
-control = false
 density = 1.20e3           # (kg/m3)
+[[RigidBody.Phase]]
+control = false
 [RigidBody.model.Triangle]
 centroid = [0.075, 0.15]
 radius = 0.02              # (m)
@@ -48,24 +49,27 @@ angle = 90
 coefficient = 0.3
 
 [[RigidBody]]
-control = false
 density = 1.20e3           # (kg/m3)
+[[RigidBody.Phase]]
+control = false
 [RigidBody.model.Polygon]
 coordinates = [[0.15, 0.0], [0.17, 0.0], [0.17, 0.4], [0.15, 0.4]]
 [[RigidBody.Friction]]
 coefficient = 0.0
 
 [[RigidBody]]
-control = false
 density = 1.20e3           # (kg/m3)
+[[RigidBody.Phase]]
+control = false
 [RigidBody.model.Polygon]
 coordinates = [[0.25, 0.0], [0.30, 0.0], [0.30, 0.05], [0.25, 0.05]]
 [[RigidBody.Friction]]
 coefficient = 0.3
 
 [[RigidBody]]
-control = false
 density = 1.20e3           # (kg/m3)
+[[RigidBody.Phase]]
+control = false
 [RigidBody.model.Circle]
 centroid = [0.275, 0.075]
 radius = 0.025
@@ -73,6 +77,7 @@ radius = 0.025
 coefficient = 0.3
 
 [[RigidBody]]
+[[RigidBody.Phase]]
 control = true
 [RigidBody.model.Circle]
 centroid = [0.48, 0.08]

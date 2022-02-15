@@ -9,10 +9,10 @@ gravity = 9.81                       # (m/s2)
 interpolation = "QuadraticBSpline()"
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.6
 CFL = 1.0
-restart = "sandcolumn.tmp/snapshots/snapshot30"
+restart = "sandcolumn.tmp/1/snapshots/snapshot30"
 
 [BoundaryCondition]
 bottom = 0.2

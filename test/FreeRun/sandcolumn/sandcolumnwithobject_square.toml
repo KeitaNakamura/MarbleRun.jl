@@ -10,7 +10,7 @@ interpolation = "KernelCorrection(QuadraticBSpline())"
 transfer = ["normal", "FLIP"]
 show_progress = false
 
-[Phase]
+[[Phase]]
 time_stop = 0.25 # (sec) <1.0>
 CFL = 1.0
 
@@ -40,8 +40,9 @@ poissons_ratio = 0.3
 height_ref = 0.3
 
 [[RigidBody]]
-control = false
 density = 1.20e3         # (kg/m3)
+[[RigidBody.Phase]]
+control = false
 [RigidBody.model.Square]
 centroid = [0.075, 0.15]
 radius = 0.02            # (m)
@@ -50,6 +51,7 @@ angle = 45
 coefficient = 0.3
 
 [[RigidBody]]
+[[RigidBody.Phase]]
 control = true
 velocity = [0.0, 2.0]
 [RigidBody.model.Polygon]
