@@ -336,17 +336,19 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
     model                :: GeometricObject
     FrictionWithMaterial :: Vector{TOMLInput_RigidBody_FrictionWithMaterial}
     output               :: Bool = true
+    reset_position       :: Bool = true # for PenetrateIntoGround
     # dummies to call convert_input
-    control::Nothing    = nothing
-    body_force::Nothing = nothing
+    control    :: Nothing = nothing
+    body_force :: Nothing = nothing
 end
 
 mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
-    Phase      :: Vector{Input_RigidBody_Phase{dim}}
-    density    :: Float64
-    model      :: Model
-    frictions  :: Vector{Vector{Vec{2, Float64}}}
-    output     :: Bool
+    Phase          :: Vector{Input_RigidBody_Phase{dim}}
+    density        :: Float64
+    model          :: Model
+    frictions      :: Vector{Vector{Vec{2, Float64}}}
+    output         :: Bool
+    reset_position :: Bool
     # to store current phase (TODO: better way)
     control    :: Bool
     body_force :: Vec{dim, Float64}

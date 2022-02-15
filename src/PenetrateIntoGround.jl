@@ -103,10 +103,12 @@ function initialize(input::Input)
     end
     @. pointstate.b = Vec(0.0, -g)
 
-    y0 = minimum(x -> x[2], coordinates(rigidbody))
-    translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2))
-    t = 0.0
+    if only(input.RigidBody).reset_position
+        y0 = minimum(x -> x[2], coordinates(rigidbody))
+        translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2))
+    end
 
+    t = 0.0
     t, grid, pointstate, rigidbody, deepcopy(rigidbody)
 end
 
