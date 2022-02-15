@@ -106,6 +106,8 @@ function initialize(input::Input)
     if only(input.RigidBody).reset_position
         y0 = minimum(x -> x[2], coordinates(rigidbody))
         translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2))
+    else
+        PoingrSimulator.remove_invalid_pointstate!(pointstate, input)
     end
 
     t = 0.0

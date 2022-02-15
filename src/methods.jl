@@ -56,7 +56,12 @@ function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, g
     pointstate = first(pointstates)
     append!(pointstate, pointstates[2:end]...)
 
-    # remove invalid pointstate
+    remove_invalid_pointstate!(pointstate, input)
+
+    pointstate
+end
+
+function remove_invalid_pointstate!(pointstate, input::Input)
     α = input.Advanced.contact_threshold_scale
     !isempty(input.RigidBody) && deleteat!(
         pointstate,
@@ -69,7 +74,6 @@ function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, g
             end
         end,
     )
-
     pointstate
 end
 
