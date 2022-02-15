@@ -45,10 +45,11 @@ end
 
 function main(input::Input, phases::Vector{Input_Phase})
     outdir = input.Output.directory
-    t, data... = initialize(input, first(phases))
+    t, grid, pointstate, rigidbodies, data... = initialize(input, first(phases))
     for i in eachindex(phases)
         input.Output.directory = joinpath(outdir, string(i))
-        t = main(input, phases[i], (t, data...))
+        reinitialize!(rigidbodies, input.RigidBody, i)
+        t = main(input, phases[i], (t, grid, pointstate, rigidbodies, data...))
     end
 end
 
@@ -59,5 +60,31 @@ function initialize(input::Input, phase::Input_Phase)
         deserialize(joinpath(input.project, phase.restart))
     end
 end
+
+function reinitialize!(rigidbody::GeometricObject, input::Input_RigidBody, phase_index::Int)
+    phase = input.Phase[phase_index]
+    if phase.control
+        rigidbody.m = Inf
+    else
+        rigidbody.m = input.density * area(rigidbody) # TODO: use volume for 3D
+    end
+    if phase.velocity !== nothing
+        rigidbody.v = phase.velocity
+    end
+    if phase.angular_velocity !== nothing
+        rigidbody.ω = phase.angular_velocity
+    end
+    input.control = phase.control
+    input.body_force = phase.body_force
+end
+function reinitialize!(rigidbodies::Vector{<: GeometricObject}, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
+    for (rigidbody, input) in zip(rigidbodies, inputs)
+        reinitialize!(rigidbody, input, phase_index)
+    end
+end
+function reinitialize!(rigidbody::GeometricObject, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
+    reinitialize!(rigidbody, only(inputs), phase_index)
+end
+reinitialize!(rigidbodies::Vector{Any}, inputs::Vector{Any}, phase_index::Int) = @assert isempty(rigidbodies) && isempty(inputs)
 
 end # module

@@ -41,6 +41,7 @@ function preprocess_input!(input::Input)
     input.BoundaryCondition.bottom = Contact(:sticky)
     input.BoundaryCondition.top    = Contact(:slip)
     for rigidbody in input.RigidBody
+        @assert rigidbody.control == true
         # for calculation of effective mass in collision
         rigidbody.density = Inf
         rigidbody.model.m = Inf

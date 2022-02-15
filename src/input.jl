@@ -13,6 +13,7 @@ function parse_input(str::AbstractString; project = ".", default_outdir = "outpu
 
     # RigidBody
     for rigidbody in input.RigidBody
+        @assert length(rigidbody.Phase) == length(input.Phase)
         @assert length(input.Material) == length(rigidbody.frictions)
         model = rigidbody.model
         for friction in rigidbody.frictions
@@ -46,6 +47,7 @@ struct ToVec
     content::Vector{Float64}
 end
 Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
+Base.isempty(x::ToVec) = isempty(x.content)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
 struct ToTuple{T}
@@ -315,39 +317,58 @@ function convert_input(input::TOMLInput_RigidBody_Friction)
     [Vec(x) for x in zip(μ, c)]
 end
 
+Base.@kwdef mutable struct TOMLInput_RigidBody_Phase <: TOMLTable
+    control          :: Bool                            = true
+    velocity         :: Union{Nothing, Vector{Float64}} = nothing
+    angular_velocity :: Union{Nothing, Vector{Float64}} = nothing
+    body_force       :: ToVec = []
+end
+mutable struct Input_RigidBody_Phase{dim}
+    control          :: Bool
+    velocity         :: Union{Nothing, Vec{dim, Float64}}
+    angular_velocity :: Union{Nothing, Vec{3, Float64}}
+    body_force       :: Vec{dim, Float64}
+end
+
 Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
-    control          :: Bool            = true
-    density          :: Float64         = control ? Inf : _undefkey(:density)
-    velocity         :: ToVec           = nothing
-    angular_velocity :: ToVec           = nothing
-    body_force       :: ToVec           = nothing
+    Phase            :: Vector{TOMLInput_RigidBody_Phase}
+    density          :: Float64 = all(phase->phase.control, Phase) ? Inf : _undefkey(:density)
     model            :: GeometricObject
     Friction         :: Vector{TOMLInput_RigidBody_Friction}
     output           :: Bool = true
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model::GeometricObject{dim}, friction, output) where {dim}
-        control                     && (density = Inf)
-        isnothing(velocity)         && (velocity = zeros(dim))
-        isnothing(angular_velocity) && (angular_velocity = zeros(3))
-        isnothing(body_force)       && (body_force = zeros(dim))
-        model.m = density * area(model) # TODO: use volume for 3D
-        model.v = velocity
-        model.ω = angular_velocity
-        new(control, density, velocity, angular_velocity, body_force, model, friction, output)
-    end
-    function TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, model, friction, output)
-        TOMLInput_RigidBody(control, density, velocity, angular_velocity, body_force, convert(GeometricObject, model), friction, output)
-    end
+    # dummies to call convert_input
+    control::Nothing    = nothing
+    body_force::Nothing = nothing
 end
 
 mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
-    control          :: Bool
-    density          :: Float64
-    velocity         :: Vec{dim, Float64}
-    angular_velocity :: Vec{3, Float64}
-    body_force       :: Vec{dim, Float64}
-    model            :: Model
-    frictions        :: Vector{Vector{Vec{2, Float64}}}
-    output           :: Bool
+    Phase      :: Vector{Input_RigidBody_Phase{dim}}
+    density    :: Float64
+    model      :: Model
+    frictions  :: Vector{Vector{Vec{2, Float64}}}
+    output     :: Bool
+    # to store current phase (TODO: better way)
+    control    :: Bool
+    body_force :: Vec{dim, Float64}
+end
+
+_dimension(::GeometricObject{dim}) where {dim} = dim
+function convert_input(input::TOMLInput_RigidBody, ::Val{:Phase})
+    dim = _dimension(input.model)
+    map(input.Phase) do phase
+        Input_RigidBody_Phase{dim}(
+            phase.control,
+            isnothing(phase.velocity)         ? nothing : convert_input(ToVec(phase.velocity)),
+            isnothing(phase.angular_velocity) ? nothing : convert_input(ToVec(phase.angular_velocity)),
+            isempty(phase.body_force)         ? zero(Vec{dim}) : convert_input(phase.body_force),
+        )
+    end
+end
+
+convert_input(input::TOMLInput_RigidBody, ::Val{:control}) = true
+function convert_input(input::TOMLInput_RigidBody, ::Val{:body_force})
+    dim = _dimension(input.model)
+    zero(Vec{dim})
 end
 
 # Polygon
@@ -427,16 +448,16 @@ end
 #############
 
 Base.@kwdef mutable struct TOMLInput <: TOMLTable
-    project           :: String                                          = "."
+    project           :: String                      = "."
     General           :: TOMLInput_General
-    Phase             :: Union{TOMLInput_Phase, Vector{TOMLInput_Phase}}
-    BoundaryCondition :: TOMLInput_BoundaryCondition                     = TOMLInput_BoundaryCondition()
+    Phase             :: Vector{TOMLInput_Phase}
+    BoundaryCondition :: TOMLInput_BoundaryCondition = TOMLInput_BoundaryCondition()
     Output            :: TOMLInput_Output
-    SoilLayer         :: Vector{TOMLInput_SoilLayer}                     = TOMLInput_SoilLayer[]
-    Material          :: Vector{TOMLInput_Material}                      = TOMLInput_Material[]
-    RigidBody         :: Vector{TOMLInput_RigidBody}                     = TOMLInput_RigidBody[]
-    Advanced          :: TOMLInput_Advanced                              = TOMLInput_Advanced()
-    Injection         :: Module                                          = Module()
+    SoilLayer         :: Vector{TOMLInput_SoilLayer} = TOMLInput_SoilLayer[]
+    Material          :: Vector{TOMLInput_Material}  = TOMLInput_Material[]
+    RigidBody         :: Vector{TOMLInput_RigidBody} = TOMLInput_RigidBody[]
+    Advanced          :: TOMLInput_Advanced          = TOMLInput_Advanced()
+    Injection         :: Module                      = Module()
 end
 
 function TOMLInput(dict::Dict{String, Any})::TOMLInput
