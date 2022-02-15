@@ -59,7 +59,7 @@ function initialize(input::Input)
     # SoilLayer
     soillayers = input.SoilLayer
     H = sum(layer -> layer.thickness, soillayers) # ground surface
-    @assert H ≤ ymax
+    @assert ymin + H ≤ ymax
 
     # Advanced
     α = input.Advanced.contact_threshold_scale
@@ -103,7 +103,8 @@ function initialize(input::Input)
     end
     @. pointstate.b = Vec(0.0, -g)
 
-    translate!(rigidbody, Vec(0.0, H + (α-1)*(dx/nptsincell)/2))
+    y0 = minimum(x -> x[2], coordinates(rigidbody))
+    translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2))
     t = 0.0
 
     t, grid, pointstate, rigidbody, deepcopy(rigidbody)
