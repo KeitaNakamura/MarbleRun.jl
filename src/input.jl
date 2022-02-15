@@ -303,14 +303,14 @@ end
 # RigidBody #
 #############
 
-Base.@kwdef mutable struct TOMLInput_RigidBody_Friction <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_FrictionWithMaterial <: TOMLTable
     coefficient :: Vector{Float64}
     cohesion    :: Vector{Float64} = []
-    function TOMLInput_RigidBody_Friction(coefficient, cohesion)
+    function TOMLInput_RigidBody_FrictionWithMaterial(coefficient, cohesion)
         new(wrap(coefficient), wrap(cohesion))
     end
 end
-function convert_input(input::TOMLInput_RigidBody_Friction)
+function convert_input(input::TOMLInput_RigidBody_FrictionWithMaterial)
     μ = input.coefficient
     c = input.cohesion
     c = isempty(c) ? fill(0.0, length(μ)) : c
@@ -331,11 +331,11 @@ mutable struct Input_RigidBody_Phase{dim}
 end
 
 Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
-    Phase            :: Vector{TOMLInput_RigidBody_Phase}
-    density          :: Float64 = all(phase->phase.control, Phase) ? Inf : _undefkey(:density)
-    model            :: GeometricObject
-    Friction         :: Vector{TOMLInput_RigidBody_Friction}
-    output           :: Bool = true
+    Phase                :: Vector{TOMLInput_RigidBody_Phase}
+    density              :: Float64 = all(phase->phase.control, Phase) ? Inf : _undefkey(:density)
+    model                :: GeometricObject
+    FrictionWithMaterial :: Vector{TOMLInput_RigidBody_FrictionWithMaterial}
+    output               :: Bool = true
     # dummies to call convert_input
     control::Nothing    = nothing
     body_force::Nothing = nothing

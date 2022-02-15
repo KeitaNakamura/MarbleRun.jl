@@ -45,7 +45,7 @@ control = false
 centroid = [0.075, 0.15]
 radius = 0.02              # (m)
 angle = 90
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.3
 
 [[RigidBody]]
@@ -54,7 +54,7 @@ density = 1.20e3           # (kg/m3)
 control = false
 [RigidBody.model.Polygon]
 coordinates = [[0.15, 0.0], [0.17, 0.0], [0.17, 0.4], [0.15, 0.4]]
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.0
 
 [[RigidBody]]
@@ -63,7 +63,7 @@ density = 1.20e3           # (kg/m3)
 control = false
 [RigidBody.model.Polygon]
 coordinates = [[0.25, 0.0], [0.30, 0.0], [0.30, 0.05], [0.25, 0.05]]
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.3
 
 [[RigidBody]]
@@ -73,7 +73,7 @@ control = false
 [RigidBody.model.Circle]
 centroid = [0.275, 0.075]
 radius = 0.025
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.3
 
 [[RigidBody]]
@@ -82,7 +82,7 @@ control = true
 [RigidBody.model.Circle]
 centroid = [0.48, 0.08]
 radius = 0.025
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.3
 
 

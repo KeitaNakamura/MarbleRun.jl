@@ -45,7 +45,7 @@ body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
 [RigidBody.model.Circle]
 centroid = [0.01, 0.04]
 radius = 1.25e-3             # (m)
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = inf            # no-slip boundary
 
 [Advanced]

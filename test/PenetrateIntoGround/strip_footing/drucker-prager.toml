@@ -38,7 +38,7 @@ tension_cutoff = false
 velocity = [0.0, -0.1] # (m/s)
 [RigidBody.model.Polygon]
 coordinates = [[0.0, 0.0], [0.5, 0.0], [0.5, 0.1], [0.0, 0.1]]
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.6
 
 [Advanced]

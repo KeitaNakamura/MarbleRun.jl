@@ -56,9 +56,9 @@ velocity = [0.0, -2.0] # (m/s)
 velocity = [0.0, 0.5] # (m/s)
 [RigidBody.model.Polygon]
 coordinates = [[0.1, 1.0], [0.1, 0.0], [0.14, 0.0], [0.14, 1.0]]
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = [0.0, 0.0, 0.35, 0.35]
-[[RigidBody.Friction]]
+[[RigidBody.FrictionWithMaterial]]
 coefficient = 0.41
 
 [Advanced]
