@@ -66,7 +66,7 @@ function initialize(input::Input)
     nptsincell = input.Advanced.npoints_in_cell
 
     grid = Grid(NodeState, input.General.interpolation, xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
-    pointstate = generate_pointstate((x,y) -> y < H, PointState, grid; n = nptsincell)
+    pointstate = generate_pointstate((x,y) -> y < ymin + H, PointState, grid; n = nptsincell)
     rigidbody = only(input.RigidBody).model
 
     bottom = ymin
