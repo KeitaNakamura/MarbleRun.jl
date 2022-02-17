@@ -105,7 +105,8 @@ function initialize(input::Input)
 
     if only(input.RigidBody).reset_position
         y0 = minimum(x -> x[2], coordinates(rigidbody))
-        translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2))
+        δ = sqrt(eps(Float64))
+        translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2 + δ))
     else
         PoingrSimulator.remove_invalid_pointstate!(pointstate, input)
     end
@@ -139,7 +140,7 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
     if input.Output.history
         outputs["history_file"] = joinpath(outdir, "history.csv")
         open(outputs["history_file"], "w") do io
-            write(io, "disp,force\n")
+            write(io, "depth,force\n")
         end
     end
     if input.Output.snapshots
@@ -221,12 +222,15 @@ function writeoutput(
     if input.Output.history
         history_file = outputs["history_file"]
         open(history_file, "a") do io
-            disp = abs(centroid(rigidbody)[2] - centroid(rigidbody0)[2])
+            (_, _), (ymin, _) = input.General.domain
+            H = ymin + sum(layer -> layer.thickness, input.SoilLayer) # ground surface
+            tip = minimum(x -> x[2], coordinates(rigidbody))
+            depth = H - tip
             force = -sum(grid.state.fc)[2]
             if input.General.coordinate_system isa Axisymmetric
                 force *= 2π
             end
-            write(io, "$disp,$force\n")
+            write(io, "$depth,$force\n")
         end
     end
 
