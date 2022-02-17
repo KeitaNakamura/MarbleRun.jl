@@ -3,8 +3,8 @@ using Poingr: Interpolation
 using GeometricObjects
 using TOML
 
-function parse_input(str::AbstractString; project = ".", default_outdir = "output.tmp")
-    input = convert_input(TOMLInput(TOML.parse(str)))
+function parse_input(dict::Dict; project = ".", default_outdir = "output.tmp")
+    input = convert_input(TOMLInput(dict))
     input.project = project
     if isempty(input.Output.directory)
         input.Output.directory = default_outdir
@@ -28,6 +28,9 @@ function parse_input(str::AbstractString; project = ".", default_outdir = "outpu
 
     input.General.type.preprocess_input!(input)
     input
+end
+function parse_input(str::AbstractString; project = ".", default_outdir = "output.tmp")
+    parse_input(TOML.parse(str); project, default_outdir)
 end
 function parse_inputfile(tomlfile::AbstractString)
     @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
