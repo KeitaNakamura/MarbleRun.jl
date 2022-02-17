@@ -125,9 +125,9 @@ end
 
 # dirichlet
 Base.@kwdef struct TOMLInput_BoundaryCondition_Dirichlet <: TOMLTable
-    inbounds       :: EvalString{Function}
-    velocity       :: ToVec
-    output         :: Bool                 = true
+    inbounds :: EvalString{Function}
+    velocity :: ToVec
+    output   :: Bool = true
 end
 mutable struct Input_BoundaryCondition_Dirichlet{dim}
     inbounds       :: Function
@@ -154,10 +154,10 @@ Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLTable
 end
 
 mutable struct Input_BoundaryCondition{Dirichlet}
-    top       :: Contact
-    bottom    :: Contact
-    left      :: Contact
-    right     :: Contact
+    top    :: Contact
+    bottom :: Contact
+    left   :: Contact
+    right  :: Contact
     Dirichlet :: Vector{Dirichlet}
 end
 
@@ -216,19 +216,19 @@ end
 #############
 
 Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLTable
-    thickness                           :: Float64
-    density                             :: Float64
-    poissons_ratio                      :: Float64       = NaN
-    K0                                  :: Float64       = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
-    model                               :: MaterialModel
+    thickness      :: Float64
+    density        :: Float64
+    poissons_ratio :: Float64 = NaN
+    K0             :: Float64 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    model          :: MaterialModel
 end
 
 mutable struct Input_SoilLayer{Model <: MaterialModel}
-    thickness                 :: Float64
-    density                   :: Float64
-    poissons_ratio            :: Float64
-    K0                        :: Float64
-    model                     :: Model
+    thickness      :: Float64
+    density        :: Float64
+    poissons_ratio :: Float64
+    K0             :: Float64
+    model          :: Model
 end
 
 ##############################
