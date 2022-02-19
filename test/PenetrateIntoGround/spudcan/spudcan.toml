@@ -15,7 +15,7 @@ CFL = 0.5
 [Output]
 time_interval = 0.09 # (sec)
 history = true
-snapshots = true
+snapshot_last = true
 paraview = true
 paraview_grid = true
 copy_inputfile = true

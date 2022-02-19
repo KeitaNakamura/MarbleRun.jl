@@ -94,7 +94,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, 
         outputs["paraview_file"] = joinpath(outdir, "paraview", "output")
         paraview_collection(vtk_save, outputs["paraview_file"])
     end
-    if input.Output.snapshots
+    if input.Output.snapshots || input.Output.snapshot_last
         mkpath(joinpath(outdir, "snapshots"))
     end
     if any(d -> d.output, input.BoundaryCondition.Dirichlet)
@@ -162,6 +162,13 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, 
     catch e
         writeoutput(outputs, input, grid, pointstate, rigidbodies, t, "error")
         rethrow()
+    end
+
+    if input.Output.snapshot_last
+        serialize(
+            joinpath(input.Output.directory, "snapshots", "snapshot_last"),
+            (; t, grid, pointstate, rigidbodies)
+        )
     end
 
     t

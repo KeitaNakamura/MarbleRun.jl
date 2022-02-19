@@ -143,7 +143,7 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
             write(io, "depth,force\n")
         end
     end
-    if input.Output.snapshots
+    if input.Output.snapshots || input.Output.snapshot_last
         mkpath(joinpath(outdir, "snapshots"))
     end
     if isdefined(input.Injection, :main_output)
@@ -183,6 +183,13 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
     catch e
         writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, "error")
         rethrow()
+    end
+
+    if input.Output.snapshot_last
+        serialize(
+            joinpath(input.Output.directory, "snapshots", "snapshot_last"),
+            (; t, grid, pointstate, rigidbody, rigidbody0)
+        )
     end
 
     t

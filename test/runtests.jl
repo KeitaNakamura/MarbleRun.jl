@@ -69,6 +69,11 @@ function check_results(tomlfile::String)
                     count += 1
                 end
             end
+            if input.Output.snapshot_last == true
+                file = joinpath(output_dir, "snapshots", "snapshot_last")
+                @test isfile(file)
+                @test deserialize(file) isa NamedTuple
+            end
 
             # test history.csv if exists
             if isfile(joinpath(output_dir, "history.csv")) && !restart_case

@@ -174,6 +174,7 @@ Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
     time_interval  :: Float64
     directory      :: String  = ""
     snapshots      :: Bool    = false
+    snapshot_last  :: Bool    = false
     paraview       :: Bool    = true
     paraview_grid  :: Bool    = false
     copy_inputfile :: Bool    = true
@@ -184,6 +185,7 @@ mutable struct Input_Output
     time_interval  :: Float64
     directory      :: String
     snapshots      :: Bool
+    snapshot_last  :: Bool
     paraview       :: Bool
     paraview_grid  :: Bool
     copy_inputfile :: Bool
