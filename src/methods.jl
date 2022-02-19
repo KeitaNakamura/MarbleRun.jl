@@ -264,7 +264,7 @@ end
 # stress integration #
 ######################
 
-function compute_σ_dϵ_F_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+function compute_σ_dϵ_F_J(model::Union{VonMises, LinearElastic}, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
     dt∇v = dt * ∇v
     F = F + dt∇v ⋅ F
     dϵ = symmetric(dt∇v) # rate of deformation tensor
