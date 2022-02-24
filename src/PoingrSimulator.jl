@@ -28,7 +28,7 @@ function main(tomlfile::AbstractString)
     )
 end
 
-function main(inputtoml::AbstractString, Injection::Module; project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
+function main(inputtoml::AbstractString, Injection::Module = Module(); project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
     input = parse_input(inputtoml; project, default_outdir)
     input.Injection = Injection
     mkpath(input.Output.directory)
