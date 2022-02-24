@@ -38,8 +38,9 @@ function main(inputtoml::AbstractString, Injection::Module; project::AbstractStr
     main(input, input.Phase)
 end
 
+commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function main(input::Input, phase::Input_Phase, (t, grid, pointstate, data...) = initialize(input, phase))
-    println("Points: ", length(pointstate))
+    println("Points: ", commas(length(pointstate)))
     @eval $input.General.type.main($input, $phase, $t, $grid, $pointstate, $data...)
 end
 
