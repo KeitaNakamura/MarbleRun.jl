@@ -141,7 +141,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, 
     ##################
 
     cache = MPCache(grid, pointstate.x)
-    logger = Logger(t_start, t_stop, t_step; input.General.show_progress)
+    logger = Logger(t_start, t_stop, t_step; input.General.showprogress)
     update!(logger, t)
     writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
 

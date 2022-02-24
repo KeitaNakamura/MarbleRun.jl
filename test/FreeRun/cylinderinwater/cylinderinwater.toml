@@ -7,7 +7,7 @@ coordinate_system = "plane_strain"  # plane_strain
 domain = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.2e-3                 # (m) <0.08e-3>
 gravity    = 0.0                    # (m/s2)
-show_progress = false
+showprogress = false
 
 [[Phase]]
 time_stop = 0.01 # (sec) <1.0>

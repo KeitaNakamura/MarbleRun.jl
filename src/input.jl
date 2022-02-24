@@ -53,12 +53,6 @@ Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
 Base.isempty(x::ToVec) = isempty(x.content)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
-struct ToTuple{T}
-    content::Vector{T}
-end
-Base.convert(::Type{ToTuple{T}}, x::Vector) where {T} = ToTuple{T}(x)
-convert_input(x::ToTuple{T}) where {T} = NTuple{length(x.content), T}(x.content)
-
 struct SkipEntry{T}
     content::T
 end
@@ -77,21 +71,19 @@ Base.@kwdef mutable struct TOMLInput_General <: TOMLTable
     grid_space        :: Float64
     gravity           :: Float64
     interpolation     :: EvalString{Interpolation} = "LinearWLS(QuadraticBSpline())"
-    transfer          :: ToTuple{String}           = startswith(interpolation, "LinearWLS") ||
-                                                     startswith(interpolation, "KernelCorrection") ?
-                                                     ["affine", "PIC"] : ["normal", "FLIP"]
-    show_progress     :: Bool                      = true
+    transfer          :: EvalString{Transfer}      = "Transfer()"
+    showprogress      :: Bool                      = true
 end
 
-mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpolation}
+mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpolation, Trans <: Transfer}
     type              :: Module
     coordinate_system :: CoordSystem
     domain            :: Vector{Vector{Float64}}
     grid_space        :: Float64
     gravity           :: Float64
     interpolation     :: Interp
-    transfer          :: Tuple{String, String}
-    show_progress     :: Bool
+    transfer          :: Trans
+    showprogress      :: Bool
 end
 
 function convert_input(input::TOMLInput_General, ::Val{:coordinate_system})

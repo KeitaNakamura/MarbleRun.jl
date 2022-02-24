@@ -181,13 +181,7 @@ end
 ##########################
 
 function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, input::Input)
-    if input.General.transfer[1] == "normal"
-        default_point_to_grid!(grid, pointstate, cache, dt)
-    elseif input.General.transfer[1] == "affine"
-        default_affine_point_to_grid!(grid, pointstate, cache, dt)
-    else
-        error("wrong transfer, got $(input.General.transfer[1])")
-    end
+    input.General.transfer.point_to_grid!(grid, pointstate, cache, dt)
 end
 
 function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
@@ -237,13 +231,7 @@ end
 ##########################
 
 function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: Union{Input_Material, Input_SoilLayer}}, dt::Real, input::Input, phase::Input_Phase)
-    if input.General.transfer[2] == "FLIP"
-        default_grid_to_point!(pointstate, grid, cache, dt)
-    elseif input.General.transfer[2] == "PIC"
-        default_affine_grid_to_point!(pointstate, grid, cache, dt)
-    else
-        error("wrong transfer, got $(input.General.transfer[2])")
-    end
+    input.General.transfer.grid_to_point!(pointstate, grid, cache, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]

@@ -6,7 +6,7 @@ coordinate_system = "axisymmetric" # plane_strain or axisymmetric
 domain = [[0.0, 0.5], [0.0, 1.1]]  # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.02                  # (m)
 gravity = 9.81                     # (m/s2)
-show_progress = false
+showprogress = false
 
 [[Phase]]
 time_stop = 0.2 # (sec)
