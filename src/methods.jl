@@ -78,21 +78,21 @@ function remove_invalid_pointstate!(pointstate, input::Input)
 end
 
 # This function is basically based on Material.Initialization
-function initialize_stress!(σₚ::AbstractVector, material::Input_Material, g)
+function initialize_stress!(pointstate::AbstractVector, material::Input_Material, g)
     init = material.init
     ρ0 = material.density
     if init isa Input_Material_init_K0
         K0 = init.K0
-        for p in eachindex(σₚ)
-            σ_y = -ρ0 * g * init.height_ref
+        for p in eachindex(pointstate)
+            σ_y = -ρ0 * g * (init.height_ref - pointstate.x[p][2]) # TODO: handle 3D
             σ_x = K0 * σ_y
-            σₚ[p] = (@Mat [σ_x 0.0 0.0
-                           0.0 σ_y 0.0
-                           0.0 0.0 σ_x]) |> symmetric
+            pointstate.σ[p] = (@Mat [σ_x 0.0 0.0
+                                     0.0 σ_y 0.0
+                                     0.0 0.0 σ_x]) |> symmetric
         end
     elseif init isa Input_Material_init_Uniform
-        for p in eachindex(σₚ)
-            σₚ[p] = init.mean_stress * one(σₚ[p])
+        for p in eachindex(pointstate)
+            pointstate.σ[p] = init.mean_stress * one(pointstate.σ[p])
         end
     else
         error("unreachable")

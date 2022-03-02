@@ -59,7 +59,7 @@ function initialize(input::Input)
         @. pointstate.m = ρ0 * pointstate.V
         @. pointstate.b = Vec(0.0, -g)
         @. pointstate.matindex = matindex
-        PoingrSimulator.initialize_stress!(pointstate.σ, mat, g)
+        PoingrSimulator.initialize_stress!(pointstate, mat, g)
     end
     t = 0.0
 
