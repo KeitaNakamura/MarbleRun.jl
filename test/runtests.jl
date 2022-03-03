@@ -121,7 +121,7 @@ function check_history(expected, src)
     for name in propertynames(output)
         output_col = output[name]
         history_col = history[name]
-        @test output_col ≈ history_col atol=1e-8 rtol=1e-3
+        @test output_col ≈ history_col atol=1e-8 rtol=1e-2
     end
 end
 
