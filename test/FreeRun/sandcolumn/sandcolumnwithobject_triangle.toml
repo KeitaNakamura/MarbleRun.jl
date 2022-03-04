@@ -9,7 +9,7 @@ gravity = 9.81                     # (m/s2)
 showprogress = false
 
 [[Phase]]
-time_stop = 0.4 # (sec) <1.0>
+time_stop = 0.35 # (sec) <1.0>
 CFL = 1.0
 
 [BoundaryCondition]
