@@ -171,6 +171,7 @@ Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
     paraview_grid  :: Bool    = false
     copy_inputfile :: Bool    = true
     history        :: Bool    = true # only for `PenetrateIntoGround`
+    quickview      :: Bool    = false
 end
 
 mutable struct Input_Output
@@ -182,6 +183,7 @@ mutable struct Input_Output
     paraview_grid  :: Bool
     copy_inputfile :: Bool
     history        :: Bool
+    quickview      :: Bool
 end
 
 ############

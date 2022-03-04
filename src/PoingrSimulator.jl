@@ -2,6 +2,7 @@ module PoingrSimulator
 
 using Poingr
 using GeometricObjects
+using UnicodePlots
 
 using TOML
 using Serialization

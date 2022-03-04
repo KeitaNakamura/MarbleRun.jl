@@ -358,3 +358,8 @@ function write_vtk_points(vtk, pointstate::AbstractVector)
     vtk["density"] = @dot_lazy pointstate.m / pointstate.V
     vtk["material index"] = pointstate.matindex
 end
+
+function quickview_sparsity_pattern(spat::AbstractMatrix{Bool}; maxwidth::Int = 50, maxheight::Int = 25)
+    spat′ = reverse(spat', dims = 1)
+    spy(spat′; maxwidth, maxheight).graphics
+end

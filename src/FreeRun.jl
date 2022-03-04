@@ -151,7 +151,13 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, 
                 PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
             end
             PoingrSimulator.advancestep!(grid, pointstate, rigidbodies, cache, dt, input, phase)
-            update!(logger, t += dt)
+
+            if input.Output.quickview
+                update!(logger, t += dt; print = PoingrSimulator.quickview_sparsity_pattern(cache.spat))
+            else
+                update!(logger, t += dt)
+            end
+
             if islogpoint(logger)
                 if input.Advanced.reorder_pointstate
                     Poingr.reorder_pointstate!(pointstate, cache)
