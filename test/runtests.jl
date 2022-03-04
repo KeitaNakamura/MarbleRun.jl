@@ -60,19 +60,21 @@ function check_results(tomlfile::String)
             end
 
             # snapshots file
-            if !fix_results && input.Output.snapshots == true
-                root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
-                count = 0
-                for file in sort(files, lt = natural)
-                    @test file == "snapshot$count"
-                    @test deserialize(joinpath(root, file)) isa NamedTuple
-                    count += 1
+            if !fix_results
+                if input.Output.snapshots == true
+                    root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
+                    count = 0
+                    for file in sort(files, lt = natural)
+                        @test file == "snapshot$count"
+                        @test deserialize(joinpath(root, file)) isa NamedTuple
+                        count += 1
+                    end
                 end
-            end
-            if input.Output.snapshot_last == true
-                file = joinpath(output_dir, "snapshots", "snapshot_last")
-                @test isfile(file)
-                @test deserialize(file) isa NamedTuple
+                if input.Output.snapshot_last == true
+                    file = joinpath(output_dir, "snapshots", "snapshot_last")
+                    @test isfile(file)
+                    @test deserialize(file) isa NamedTuple
+                end
             end
 
             # test history.csv if exists
