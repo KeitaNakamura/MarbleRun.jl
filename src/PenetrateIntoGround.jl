@@ -23,7 +23,6 @@ function preprocess_input!(input::Input)
 end
 
 function initialize(input::Input)
-
     NodeState = @NamedTuple begin
         m::Float64
         m′::Float64
@@ -38,11 +37,14 @@ function initialize(input::Input)
     PointState = @NamedTuple begin
         m::Float64
         V::Float64
+        V0::Float64
         x::Vec{2, Float64}
         v::Vec{2, Float64}
         b::Vec{2, Float64}
         σ::SymmetricSecondOrderTensor{3, Float64, 6}
         ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
+        F::SecondOrderTensor{3, Float64, 9}
+        J::Float64
         ∇v::SecondOrderTensor{3, Float64, 9}
         C::Mat{2, 3, Float64, 6}
         r::Vec{2, Float64}
@@ -102,6 +104,9 @@ function initialize(input::Input)
         pointstate.m[p] = ρ0 * pointstate.V[p]
     end
     @. pointstate.b = Vec(0.0, -g)
+    @. pointstate.F = one(SecondOrderTensor{3})
+    @. pointstate.J = 1
+    @. pointstate.V0 = pointstate.V
 
     if only(input.RigidBody).reset_position
         y0 = minimum(x -> x[2], coordinates(rigidbody))

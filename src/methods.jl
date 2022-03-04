@@ -173,7 +173,7 @@ function advancestep!(grid::Grid{dim}, pointstate::AbstractVector, rigidbodies, 
     end
 
     # Grid-to-point transfer
-    G2P!(pointstate, grid, cache, matmodels, materials, dt, input, phase) # `materials` are for densities
+    G2P!(pointstate, grid, cache, matmodels, dt, input, phase)
 end
 
 ##########################
@@ -230,19 +230,17 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, materials::Vector{<: Union{Input_Material, Input_SoilLayer}}, dt::Real, input::Input, phase::Input_Phase)
+function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
     input.General.transfer.grid_to_point!(pointstate, grid, cache, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
-        params = materials[matindex]
-        ρ0 = params.density
-        V0 = pointstate.m[p] / ρ0
-        J = pointstate.V[p] / V0 # not updated jacobian
-        σ, dϵ, J = compute_σ_dϵ_J(model, pointstate.σ[p], pointstate.∇v[p], J, dt)
+        σ, dϵ, F, J = compute_σ_dϵ_F_J(model, pointstate.σ[p], pointstate.∇v[p], pointstate.F[p], pointstate.J[p], dt)
         pointstate.σ[p] = σ
         pointstate.ϵ[p] += dϵ
-        pointstate.V[p] = V0 * J
+        pointstate.F[p] = F
+        pointstate.J[p] = J
+        pointstate.V[p] = J * pointstate.V0[p]
         if phase.update_motion == false
             pointstate.x[p] -= pointstate.v[p] * dt
             pointstate.v[p] = zero(pointstate.v[p])
@@ -266,15 +264,18 @@ end
 # stress integration #
 ######################
 
-function compute_σ_dϵ_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    dϵ = symmetric(∇v) * dt
+function compute_σ_dϵ_F_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+    dt∇v = dt * ∇v
+    F = F + dt∇v ⋅ F
+    dϵ = symmetric(dt∇v) # rate of deformation tensor
     σ = matcalc(Val(:stress), model, σ_n, dϵ)
     σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    σ, dϵ, J*exp(tr(dϵ))
+    σ, dϵ, F, det(F)
 end
 
-function compute_σ_dϵ_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    dϵ = symmetric(∇v) * dt
+function compute_σ_dϵ_F_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+    dt∇v = dt * ∇v
+    dϵ = symmetric(dt∇v) # rate of deformation tensor
     σ = matcalc(Val(:stress), model, σ_n, dϵ)
     σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
     if mean(σ) > model.tension_cutoff
@@ -291,13 +292,17 @@ function compute_σ_dϵ_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor
         σ = Poingr.tension_cutoff(model, σ_tr)
         dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
     end
-    σ, dϵ, J*exp(tr(dϵ))
+    # calculate deformation gradient by using modified rate of deformation tensor
+    # to handle tension-cutoff case
+    F = F + (dϵ + skew(dt∇v)) ⋅ F
+    σ, dϵ, F, det(F)
 end
 
-function compute_σ_dϵ_J(model::NewtonianFluid, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, J::Real, dt::Real)
-    J = (1 + tr(∇v)*dt) * J
+function compute_σ_dϵ_F_J(model::NewtonianFluid, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+    J = (1 + tr(∇v)*dt) * J # direct linear integration for `J` is more accurate than using `F` (maybe?)
     σ = matcalc(Val(:stress), model, ∇v, J, dt)
-    σ, zero(σ), J # NOTE: dϵ is used
+    # σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
+    σ, zero(σ), F, J # NOTE: `dϵ` is not used
 end
 
 ######################
