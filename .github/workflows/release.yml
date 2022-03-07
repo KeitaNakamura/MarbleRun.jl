@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: '*'
+
+env:
+  packagename: PoingrSimulator
+
+jobs:
+  compile:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.6'
+        os:
+          - ubuntu-latest
+          - macOS-latest
+          - windows-latest
+        arch:
+          - x64
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - uses: actions/cache@v1
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
+      - name: Add custom registry
+        run: julia --proj=@. -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/KeitaNakamura/KeitaNakamuraRegistry.git"))'
+        shell: bash
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Get tag name
+        id: get_tag
+        run: echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
+        shell: bash
+      - name: Compile package
+        run: julia --proj=@. -e 'using Pkg; Pkg.add("PackageCompiler"); using PackageCompiler; create_app(".", "${{ env.packagename }} ${{ steps.get_tag.outputs.TAG }} (${{ runner.os }})", executables= ["simulation" => "main_simulation", "postprocess" => "main_postprocess"])'
+        shell: bash
+      - name: Zip build directory for Linux/MacOS
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: zip -r ${{ runner.os }} "${{ env.packagename }} ${{ steps.get_tag.outputs.TAG }} (${{ runner.os }})"
+      - name: Zip build directory for Windows
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path "${{ env.packagename }} ${{ steps.get_tag.outputs.TAG }} (Windows)" -DestinationPath Windows
+      - name: Upload zip files
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ runner.os }}
+          path: ${{ runner.os }}.zip
+
+  upload:
+    name: Create Release
+    needs: compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all zip files
+        uses: actions/download-artifact@v2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Linux/Linux.zip
+            macOS/macOS.zip
+            Windows/Windows.zip
