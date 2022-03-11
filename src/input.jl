@@ -53,11 +53,6 @@ Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
 Base.isempty(x::ToVec) = isempty(x.content)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
-struct SkipEntry{T}
-    content::T
-end
-Base.convert(::Type{SkipEntry{T}}, x) where {T} = SkipEntry{T}(x)
-
 _undefkey(s) = throw(UndefKeywordError(s))
 
 ###########
@@ -153,8 +148,8 @@ mutable struct Input_BoundaryCondition{Dirichlet}
     Dirichlet :: Vector{Dirichlet}
 end
 
-function convert_input(input::TOMLInput_BoundaryCondition, ::Val{name}) where {name}
-    name != :Dirichlet && return Contact(:friction, getproperty(input, name))
+function convert_input(input::TOMLInput_BoundaryCondition, ::Val{field}) where {field}
+    field != :Dirichlet && return Contact(:friction, getproperty(input, field))
     map(convert_input, input.Dirichlet)
 end
 
@@ -190,7 +185,6 @@ end
 # Material #
 ############
 
-const VV{T} = Vector{Vector{T}}
 wrap(x)::Vector{Float64} = x isa Number ? [x] : x
 
 Base.@kwdef mutable struct TOMLInput_Material <: TOMLTable
@@ -526,11 +520,11 @@ convert_input(x) = x
 convert_input(x::Vector) = map(convert_input, x)
 @generated function convert_input(table::TOMLTable)
     names = fieldnames(table)
-    exps = [:(convert_input(table, $(Val(name)))) for name in names if !(fieldtype(table, name) <: SkipEntry)]
+    exps = [:(convert_input(table, $(Val(name)))) for name in names]
     T = Symbol(replace(string(table.name.name), "TOML" => ""))
     quote
         $T($(exps...))
     end
 end
 
-convert_input(input::TOMLTable, ::Val{name}) where {name} = convert_input(getproperty(input, name))
+convert_input(input::TOMLTable, ::Val{field}) where {field} = convert_input(getproperty(input, field))
