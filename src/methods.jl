@@ -291,10 +291,10 @@ function compute_σ_dϵ_F_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTens
         σ_tr = matcalc(Val(:stress), model.elastic, σ_n, dϵ)
         σ = Poingr.tension_cutoff(model, σ_tr)
         dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
+        # modify velocity gradient from re-calculated strain tensor (symmetric component)
+        dt∇v = dϵ + skew(dt∇v)
     end
-    # calculate deformation gradient by using modified rate of deformation tensor
-    # to handle tension-cutoff case
-    F = F + (dϵ + skew(dt∇v)) ⋅ F
+    F = F + dt∇v ⋅ F
     σ, dϵ, F, det(F)
 end
 
