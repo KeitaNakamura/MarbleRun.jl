@@ -12,6 +12,6 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [compat]
 GeometricObjects = "0.5"
-Poingr = "0.20"
+Poingr = "0.20, 0.21"
 UnicodePlots = "1, 2"
 julia = "1.6"
