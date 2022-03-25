@@ -114,7 +114,7 @@ function check_results(tomlfile::String)
 end
 
 function fix_history(dest, src)
-    cp(dest, src ; force = true)
+    cp(dest, src; force = true)
 end
 function check_history(expected, src)
     # check results

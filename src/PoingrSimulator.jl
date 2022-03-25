@@ -1,8 +1,10 @@
 module PoingrSimulator
 
 using Poingr
+using MaterialModels
 using GeometricObjects
 using UnicodePlots
+using StructArrays
 
 using TOML
 using Serialization

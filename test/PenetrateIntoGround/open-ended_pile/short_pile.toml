@@ -2,7 +2,7 @@
 
 [General]
 type = "PenetrateIntoGround"
-coordinate_system = "axisymmetric" # plane_strain or axisymmetric
+coordinate_system = "axisymmetric" # planestrain or axisymmetric
 domain = [[0.0, 0.5], [0.0, 1.5]]  # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.02                  # (m)
 gravity = 9.81                     # (m/s2)
@@ -24,29 +24,29 @@ paraview_grid = true
 copy_inputfile = true
 
 [[SoilLayer]]
-thickness = 0.1                     # (m)
-density = 1300.0                    # (kg/m3)
-poissons_ratio = 0.333              # K0 is calculated from poisson's ratio
+thickness = 0.1                   # (m)
+density = 1300.0                  # (kg/m3)
+poissons_ratio = 0.333            # K0 is calculated from poisson's ratio
 [SoilLayer.model.DruckerPrager]
-mohr_coulomb_type = "circumscribed"
+mohr_coulomb_type = "compression"
 poissons_ratio = 0.333
-youngs_modulus = 1e6                # (N/m2)
-cohesion = 0.0                      # (N/m2)
-friction_angle = 28.0               # (degree)
-dilatancy_angle = 0.0               # (degree)
+youngs_modulus = 1e6              # (N/m2)
+cohesion = 0.0                    # (N/m2)
+friction_angle = 28.0             # (degree)
+dilatancy_angle = 0.0             # (degree)
 tension_cutoff = 0.0
 
 [[SoilLayer]]
-thickness = 0.9                     # (m)
-density = 1500.0                    # (kg/m3)
-poissons_ratio = 0.333              # K0 is calculated from poisson's ratio
+thickness = 0.9                   # (m)
+density = 1500.0                  # (kg/m3)
+poissons_ratio = 0.333            # K0 is calculated from poisson's ratio
 [SoilLayer.model.DruckerPrager]
-mohr_coulomb_type = "circumscribed"
+mohr_coulomb_type = "compression"
 poissons_ratio = 0.333
-youngs_modulus = 1e6                # (N/m2)
-cohesion = 0.0                      # (N/m2)
-friction_angle = 32.0               # (degree)
-dilatancy_angle = 0.0               # (degree)
+youngs_modulus = 1e6              # (N/m2)
+cohesion = 0.0                    # (N/m2)
+friction_angle = 32.0             # (degree)
+dilatancy_angle = 0.0             # (degree)
 tension_cutoff = 0.0
 
 [[RigidBody]]

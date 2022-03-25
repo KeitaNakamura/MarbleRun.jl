@@ -3,7 +3,7 @@
 
 [General]
 type = "FreeRun"
-coordinate_system = "plane_strain"  # plane_strain
+coordinate_system = "planestrain"
 domain = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.2e-3                 # (m) <0.08e-3>
 gravity    = 0.0                    # (m/s2)
@@ -28,9 +28,7 @@ copy_inputfile = true
 
 [[Material]]
 region = "(x,y) -> true"
-density = 1.0e3                 # (kg/m3)
 [Material.model.NewtonianFluid]
-pressure_ref = 100.0            # (N/m2) <10.0>
 density_ref = 1.0e3             # (kg/m3)
 speed_of_sound = 1.0            # (m/s)
 viscosity = 0.01                # (Pa⋅s)

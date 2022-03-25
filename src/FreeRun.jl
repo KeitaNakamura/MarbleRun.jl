@@ -30,15 +30,12 @@ function initialize(input::Input)
     PointState = @NamedTuple begin
         m::Float64
         V::Float64
-        V0::Float64
         x::Vec{2, Float64}
         v::Vec{2, Float64}
         b::Vec{2, Float64}
         fc::Vec{2, Float64}
         σ::SymmetricSecondOrderTensor{3, Float64, 6}
         ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
-        F::SecondOrderTensor{3, Float64, 9}
-        J::Float64
         ∇v::SecondOrderTensor{3, Float64, 9}
         C::Mat{2, 3, Float64, 6}
         r::Vec{2, Float64}
@@ -56,15 +53,8 @@ function initialize(input::Input)
 
     grid = Grid(NodeState, input.General.interpolation, xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
-        mat = materials[matindex]
-        ρ0 = mat.density
-        @. pointstate.m = ρ0 * pointstate.V
-        @. pointstate.b = Vec(0.0, -g)
-        @. pointstate.F = one(SecondOrderTensor{3})
-        @. pointstate.J = 1
-        @. pointstate.V0 = pointstate.V
+        PoingrSimulator.initialize_pointstate!(pointstate, materials[matindex], g)
         @. pointstate.matindex = matindex
-        PoingrSimulator.initialize_stress!(pointstate, mat, g)
     end
     t = 0.0
 

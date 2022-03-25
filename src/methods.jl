@@ -16,7 +16,7 @@ end
 function timestep(model::DruckerPrager, pt, dx) # currently support only LinearElastic
     ρ = pt.m / pt.V
     v = norm(pt.v)
-    vc = matcalc(Val(:sound_speed), model.elastic.K, model.elastic.G, ρ)
+    vc = @matcalc(:soundspeed; model.elastic.K, model.elastic.G, ρ)
     dx / (vc + v)
 end
 
@@ -25,13 +25,13 @@ function timestep(model::NewtonianFluid, pt, dx)
     ρ = pt.m / pt.V
     ν = model.μ / ρ # kinemtatic viscosity
     v = norm(pt.v)
-    vc = model.pressure_model.c # speed of sound
+    vc = model.eos.c # speed of sound
     min(dx / (vc + v), dx^2 / ν)
 end
 
-##########################################
-# generate_pointstate/initialize_stress! #
-##########################################
+##############################################
+# generate_pointstate/initialize_pointstate! #
+##############################################
 
 # Since initializing pointstate is dependent on types of simulation,
 # `initialize!` phase should be given as argument.
@@ -77,25 +77,47 @@ function remove_invalid_pointstate!(pointstate, input::Input)
     pointstate
 end
 
-# This function is basically based on Material.Initialization
-function initialize_stress!(pointstate::AbstractVector, material::Input_Material, g)
+function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material, g)
+    init_stress_mass!(pointstate, material, g)
+    @. pointstate.b = Vec(0.0, -g)
+    pointstate
+end
+
+function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material{Model, Init}, g) where {Model, Init}
+    throw(ArgumentError("$Init is not available for $Model"))
+end
+
+function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: MaterialModel, <: Input_Material_init_K0}, g)
     init = material.init
-    ρ0 = material.density
-    if init isa Input_Material_init_K0
-        K0 = init.K0
-        for p in eachindex(pointstate)
-            σ_y = -ρ0 * g * (init.height_ref - pointstate.x[p][2]) # TODO: handle 3D
-            σ_x = K0 * σ_y
-            pointstate.σ[p] = (@Mat [σ_x 0.0 0.0
-                                     0.0 σ_y 0.0
-                                     0.0 0.0 σ_x]) |> symmetric
-        end
-    elseif init isa Input_Material_init_Uniform
-        for p in eachindex(pointstate)
-            pointstate.σ[p] = init.mean_stress * one(pointstate.σ[p])
-        end
-    else
-        error("unreachable")
+    ρ0 = init.density
+    for p in eachindex(pointstate)
+        σ_y = -ρ0 * g * (init.height_ref - pointstate.x[p][2]) # TODO: handle 3D
+        σ_x = init.K0 * σ_y
+        pointstate.σ[p] = (@Mat [σ_x 0.0 0.0
+                                 0.0 σ_y 0.0
+                                 0.0 0.0 σ_x]) |> symmetric
+        pointstate.m[p] = ρ0 * pointstate.V[p]
+    end
+end
+
+function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: MaterialModel, <: Input_Material_init_Uniform}, g)
+    init = material.init
+    ρ0 = init.density
+    for p in eachindex(pointstate)
+        pointstate.σ[p] = init.mean_stress * one(pointstate.σ[p])
+        pointstate.m[p] = ρ0 * pointstate.V[p]
+    end
+end
+
+function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: NewtonianFluid, <: Input_Material_init_Uniform}, g)
+    model = material.model
+    init = material.init
+    if isassigned(init, :density) && isassigned(init, :mean_stress) # don't use `isdefined`!!
+        @warn "`density` in `Material.init.Uniform` is overwritten based on the `mean_stress` for `NewtonianFluid` model"
+    end
+    for p in eachindex(pointstate)
+        pointstate.σ[p] = init.mean_stress * one(pointstate.σ[p])
+        pointstate.m[p] = @matcalc(:density, model; p = -init.mean_stress) * pointstate.V[p]
     end
 end
 
@@ -235,12 +257,16 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
-        σ, dϵ, F, J = compute_σ_dϵ_F_J(model, pointstate.σ[p], pointstate.∇v[p], pointstate.F[p], pointstate.J[p], dt)
+        # currently we don't have constitutive models using deformation gradient `F`.
+        # so we calculate the volume `V` from the equation `Vₙ₊₁ = Vₙ * exp(tr(∇v*dt))`
+        # instead of using `det(F)` with linear integration of `F` (`Fₙ₊₁ = Fₙ + dt*∇v ⋅ Fₙ`).
+        # the equation can be derived by integrating the definition of the rate of
+        # the Jacobian `J̇ = J * tr(∇v)`.
+        pt = LazyRow(pointstate, p)
+        σ, dϵ = compute_σ_dϵ(model, pt, pointstate.∇v[p], dt)
         pointstate.σ[p] = σ
         pointstate.ϵ[p] += dϵ
-        pointstate.F[p] = F
-        pointstate.J[p] = J
-        pointstate.V[p] = J * pointstate.V0[p]
+        pointstate.V[p] *= exp(tr(dϵ))
         if phase.update_motion == false
             pointstate.x[p] -= pointstate.v[p] * dt
             pointstate.v[p] = zero(pointstate.v[p])
@@ -264,21 +290,26 @@ end
 # stress integration #
 ######################
 
-function compute_σ_dϵ_F_J(model::VonMises, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+@inline function compute_σ_dϵ(model::VonMises, pt, ∇v::SecondOrderTensor{3}, dt::Real)
+    @_propagate_inbounds_meta
+    σ_n = pt.σ
     dt∇v = dt * ∇v
-    F = F + dt∇v ⋅ F
-    dϵ = symmetric(dt∇v) # rate of deformation tensor
-    σ = matcalc(Val(:stress), model, σ_n, dϵ)
-    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    σ, dϵ, F, det(F)
+    dϵ = symmetric(dt∇v)
+    σ = @matcalc(:stress, model; σ_n, dϵ)
+    dσᴶ = σ - σ_n
+    σ = σ_n + @matcalc(:jaumann2caucy; dσ_jaumann=dσᴶ, σ=σ_n, W=skew(dt∇v))
+    σ, dϵ
 end
 
-function compute_σ_dϵ_F_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
+@inline function compute_σ_dϵ(model::DruckerPrager, pt, ∇v::SecondOrderTensor{3}, dt::Real)
+    @_propagate_inbounds_meta
+    σ_n = pt.σ
     dt∇v = dt * ∇v
-    dϵ = symmetric(dt∇v) # rate of deformation tensor
-    σ = matcalc(Val(:stress), model, σ_n, dϵ)
-    σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    if mean(σ) > model.tension_cutoff
+    dϵ = symmetric(dt∇v)
+    ret = @matcalc(:stressall, model; σ=σ_n, dϵ)
+    dσᴶ = ret.σ - σ_n
+    σ = σ_n + @matcalc(:jaumann2caucy; dσ_jaumann=dσᴶ, σ=σ_n, W=skew(dt∇v))
+    if ret.status.tensioncutoff
         # In this case, since the soil particles are not contacted with
         # each other, soils should not act as continuum.
         # This means that the deformation based on the contitutitive model
@@ -288,21 +319,18 @@ function compute_σ_dϵ_F_J(model::DruckerPrager, σ_n::SymmetricSecondOrderTens
         # function, and ignore the plastic strain to prevent excessive generation.
         # If we include this plastic strain, the volume of the material points
         # will continue to increase unexpectedly.
-        σ_tr = matcalc(Val(:stress), model.elastic, σ_n, dϵ)
-        σ = Poingr.tension_cutoff(model, σ_tr)
-        dϵ = model.elastic.Dinv ⊡ (σ - σ_n)
-        # modify velocity gradient from re-calculated strain tensor (symmetric component)
-        dt∇v = dϵ + skew(dt∇v)
+        dϵ = @matcalc(:strain, model.elastic; σ=σ-σ_n)
     end
-    F = F + dt∇v ⋅ F
-    σ, dϵ, F, det(F)
+    σ, dϵ
 end
 
-function compute_σ_dϵ_F_J(model::NewtonianFluid, σ_n::SymmetricSecondOrderTensor, ∇v::SecondOrderTensor, F::SecondOrderTensor, J::Real, dt::Real)
-    J = (1 + tr(∇v)*dt) * J # direct linear integration for `J` is more accurate than using `F` (maybe?)
-    σ = matcalc(Val(:stress), model, ∇v, J, dt)
-    # σ = matcalc(Val(:jaumann_stress), σ, σ_n, ∇v, dt)
-    σ, zero(σ), F, J # NOTE: `dϵ` is not used
+@inline function compute_σ_dϵ(model::NewtonianFluid, pt, ∇v::SecondOrderTensor{3}, dt::Real)
+    @_propagate_inbounds_meta
+    dt∇v = dt * ∇v
+    dϵ = symmetric(dt∇v)
+    V = pt.V * exp(tr(dϵ)) # need updated volume
+    σ = @matcalc(:stress, model; d = symmetric(∇v), ρ = pt.m/V)
+    σ, dϵ
 end
 
 ######################
@@ -355,9 +383,9 @@ function write_vtk_points(vtk, pointstate::AbstractVector)
     vtk["velocity"] = pointstate.v
     vtk["mean stress"] = @dot_lazy mean(σ)
     vtk["pressure"] = @dot_lazy -mean(σ)
-    vtk["deviatoric stress"] = @dot_lazy deviatoric_stress(σ)
-    vtk["volumetric strain"] = @dot_lazy volumetric_strain(ϵ)
-    vtk["deviatoric strain"] = @dot_lazy deviatoric_strain(ϵ)
+    vtk["deviatoric stress"] = @dot_lazy sqrt(3/2 * dev(σ) ⊡ dev(σ))
+    vtk["volumetric strain"] = @dot_lazy tr(ϵ)
+    vtk["deviatoric strain"] = @dot_lazy sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ))
     vtk["stress"] = σ
     vtk["strain"] = ϵ
     vtk["density"] = @dot_lazy pointstate.m / pointstate.V

@@ -38,14 +38,17 @@ function parse_inputfile(tomlfile::AbstractString)
     input = parse_input(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
 end
 
-abstract type TOMLTable end
+abstract type TOMLInputTable end
+abstract type InputTable end
 
+# evaluate expression given as string
 struct EvalString{T}
     content::T
 end
 Base.convert(::Type{EvalString{T}}, x::String) where {T} = EvalString{T}(eval(Meta.parse(x)))
 convert_input(x::EvalString) = x.content
 
+# convert Vector to Vec
 struct ToVec
     content::Vector{Float64}
 end
@@ -53,13 +56,37 @@ Base.convert(::Type{ToVec}, x::Vector) = ToVec(x)
 Base.isempty(x::ToVec) = isempty(x.content)
 convert_input(x::ToVec) = Vec{length(x.content), Float64}(x.content)
 
-_undefkey(s) = throw(UndefKeywordError(s))
+# throw undef error if `content` is `missing`
+struct MaybeUndef{T}
+    content::Union{T, Missing}
+end
+Base.convert(::Type{MaybeUndef{T}}, x) where {T} = MaybeUndef{T}(x)
+convert_input(x::MaybeUndef) = x
+Base.isassigned(x::MaybeUndef) = !ismissing(x.content)
+
+undefkeyerror(s) = throw(UndefKeywordError(s))
+function Base.getproperty(t::InputTable, name::Symbol)
+    v = getfield(t, name)
+    if v isa MaybeUndef
+        ismissing(v.content) && undefkeyerror(name)
+        return v.content
+    end
+    v
+end
+function Base.isassigned(t::InputTable, name::Symbol)
+    v = try
+        getfield(t, name)
+    catch
+        return false
+    end
+    ifelse(v isa MaybeUndef, isassigned(v), true)
+end
 
 ###########
 # General #
 ###########
 
-Base.@kwdef mutable struct TOMLInput_General <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_General <: TOMLInputTable
     type              :: EvalString{Module}
     coordinate_system :: String
     domain            :: Vector{Vector{Float64}}
@@ -70,7 +97,7 @@ Base.@kwdef mutable struct TOMLInput_General <: TOMLTable
     showprogress      :: Bool                      = true
 end
 
-mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpolation, Trans <: Transfer}
+mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpolation, Trans <: Transfer} <: InputTable
     type              :: Module
     coordinate_system :: CoordSystem
     domain            :: Vector{Vector{Float64}}
@@ -82,9 +109,10 @@ mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpol
 end
 
 function convert_input(input::TOMLInput_General, ::Val{:coordinate_system})
-    input.coordinate_system == "plane_strain" && return PlaneStrain()
-    input.coordinate_system == "axisymmetric" && return Axisymmetric()
-    throw(ArgumentError("wrong `coordinate_system`, got \"$coordinate_system\", use \"plane_strain\" or \"axisymmetric\""))
+    c = input.coordinate_system
+    c == "planestrain"  && return PlaneStrain()
+    c == "axisymmetric" && return Axisymmetric()
+    throw(ArgumentError("wrong `coordinate_system`, got \"$c\", use \"planestrain\" or \"axisymmetric\""))
 end
 
 
@@ -92,14 +120,14 @@ end
 # Phase #
 #########
 
-Base.@kwdef mutable struct TOMLInput_Phase <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Phase <: TOMLInputTable
     time_stop     :: Float64
     CFL           :: Float64 = 0.5
     restart       :: String  = ""
     update_motion :: Bool    = true
 end
 
-mutable struct Input_Phase
+mutable struct Input_Phase <: InputTable
     time_stop     :: Float64
     CFL           :: Float64
     restart       :: String
@@ -111,12 +139,12 @@ end
 #####################
 
 # dirichlet
-Base.@kwdef struct TOMLInput_BoundaryCondition_Dirichlet <: TOMLTable
+Base.@kwdef struct TOMLInput_BoundaryCondition_Dirichlet <: TOMLInputTable
     inbounds :: EvalString{Function}
     velocity :: ToVec
     output   :: Bool = true
 end
-mutable struct Input_BoundaryCondition_Dirichlet{dim}
+mutable struct Input_BoundaryCondition_Dirichlet{dim} <: InputTable
     inbounds       :: Function
     velocity       :: Vec{dim, Float64}
     output         :: Bool
@@ -132,7 +160,7 @@ function convert_input(input::TOMLInput_BoundaryCondition_Dirichlet)
     Input_BoundaryCondition_Dirichlet(inbounds, velocity, output, 0.0, 0.0, Array{Bool, dim}(undef, fill(0, dim)...))
 end
 
-Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLInputTable
     top    :: Float64 = 0.0
     bottom :: Float64 = 0.0
     left   :: Float64 = 0.0
@@ -140,7 +168,7 @@ Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLTable
     Dirichlet :: Vector{TOMLInput_BoundaryCondition_Dirichlet} = []
 end
 
-mutable struct Input_BoundaryCondition{Dirichlet}
+mutable struct Input_BoundaryCondition{Dirichlet} <: InputTable
     top    :: Contact
     bottom :: Contact
     left   :: Contact
@@ -157,7 +185,7 @@ end
 # Output #
 ##########
 
-Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Output <: TOMLInputTable
     time_interval  :: Float64
     directory      :: String  = ""
     snapshots      :: Bool    = false
@@ -169,7 +197,7 @@ Base.@kwdef mutable struct TOMLInput_Output <: TOMLTable
     quickview      :: Bool    = false
 end
 
-mutable struct Input_Output
+mutable struct Input_Output <: InputTable
     time_interval  :: Float64
     directory      :: String
     snapshots      :: Bool
@@ -187,16 +215,14 @@ end
 
 wrap(x)::Vector{Float64} = x isa Number ? [x] : x
 
-Base.@kwdef mutable struct TOMLInput_Material <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Material <: TOMLInputTable
     region  :: EvalString{Function}
-    density :: Float64
     model   :: MaterialModel
     init
 end
 
-mutable struct Input_Material{Model <: MaterialModel, Init}
+mutable struct Input_Material{Model <: MaterialModel, Init} <: InputTable
     region  :: Function
-    density :: Float64
     model   :: Model
     init    :: Init
 end
@@ -205,15 +231,15 @@ end
 # SoilLayer #
 #############
 
-Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_SoilLayer <: TOMLInputTable
     thickness      :: Float64
     density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? undefkeyerror(:K0) : poissons_ratio / (1 - poissons_ratio)
     model          :: MaterialModel
 end
 
-mutable struct Input_SoilLayer{Model <: MaterialModel}
+mutable struct Input_SoilLayer{Model <: MaterialModel} <: InputTable
     thickness      :: Float64
     density        :: Float64
     poissons_ratio :: Float64
@@ -227,25 +253,28 @@ end
 
 # newtonian fluid
 
-Base.@kwdef mutable struct TOMLInput_Material_model_NewtonianFluid <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Material_model_NewtonianFluid <: TOMLInputTable
     density_ref    :: Float64
-    pressure_ref   :: Float64
     speed_of_sound :: Float64
     viscosity      :: Float64
+    second_coefficient_of_viscosity :: Float64 = -2*viscosity/3
 end
 
 function Base.convert(::Type{MaterialModel}, model::TOMLInput_Material_model_NewtonianFluid)
-    NewtonianFluid(;
-        ρ0 = model.density_ref,
-        P0 = model.pressure_ref,
+    eos = MorrisWaterEOS(;
         c = model.speed_of_sound,
+        ρ_ref = model.density_ref,
+    )
+    NewtonianFluid(
+        eos;
         μ = model.viscosity,
+        λ = model.second_coefficient_of_viscosity,
     )
 end
 
 # Drucker-Prager model
 
-Base.@kwdef mutable struct TOMLInput_Material_model_DruckerPrager <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Material_model_DruckerPrager <: TOMLInputTable
     mohr_coulomb_type :: String
     youngs_modulus    :: Float64
     poissons_ratio    :: Float64
@@ -262,9 +291,9 @@ function Base.convert(::Type{MaterialModel}, model::TOMLInput_Material_model_Dru
         LinearElastic(; E = model.youngs_modulus, ν = model.poissons_ratio),
         model.mohr_coulomb_type;
         c = model.cohesion,
-        ϕ = model.friction_angle,
-        ψ = model.dilatancy_angle,
-        tension_cutoff = model.tension_cutoff,
+        ϕ = deg2rad(model.friction_angle),
+        ψ = deg2rad(model.dilatancy_angle),
+        tensioncutoff = model.tension_cutoff,
     )
 end
 
@@ -272,21 +301,25 @@ end
 # (Material/SoilLayer).init #
 #############################
 
-Base.@kwdef mutable struct TOMLInput_Material_init_Uniform <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Material_init_Uniform <: TOMLInputTable
+    density     :: MaybeUndef{Float64} = missing # missing is allowed when using NewtonianFluid
     mean_stress :: Float64
 end
 
-mutable struct Input_Material_init_Uniform
+mutable struct Input_Material_init_Uniform <: InputTable
+    density     :: MaybeUndef{Float64}
     mean_stress :: Float64
 end
 
-Base.@kwdef mutable struct TOMLInput_Material_init_K0 <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Material_init_K0 <: TOMLInputTable
+    density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? _undefkey(:K0) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? undefkeyerror(:K0) : poissons_ratio / (1 - poissons_ratio)
     height_ref     :: Float64
 end
 
-mutable struct Input_Material_init_K0
+mutable struct Input_Material_init_K0 <: InputTable
+    density        :: Float64
     poissons_ratio :: Float64
     K0             :: Float64
     height_ref     :: Float64
@@ -296,7 +329,7 @@ end
 # RigidBody #
 #############
 
-Base.@kwdef mutable struct TOMLInput_RigidBody_FrictionWithMaterial <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_FrictionWithMaterial <: TOMLInputTable
     coefficient :: Vector{Float64}
     cohesion    :: Vector{Float64} = []
     function TOMLInput_RigidBody_FrictionWithMaterial(coefficient, cohesion)
@@ -310,22 +343,22 @@ function convert_input(input::TOMLInput_RigidBody_FrictionWithMaterial)
     [Vec(x) for x in zip(μ, c)]
 end
 
-Base.@kwdef mutable struct TOMLInput_RigidBody_Phase <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_Phase <: TOMLInputTable
     control          :: Bool                            = true
     velocity         :: Union{Nothing, Vector{Float64}} = nothing
     angular_velocity :: Union{Nothing, Vector{Float64}} = nothing
     body_force       :: ToVec = []
 end
-mutable struct Input_RigidBody_Phase{dim}
+mutable struct Input_RigidBody_Phase{dim} <: InputTable
     control          :: Bool
     velocity         :: Union{Nothing, Vec{dim, Float64}}
     angular_velocity :: Union{Nothing, Vec{3, Float64}}
     body_force       :: Vec{dim, Float64}
 end
 
-Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLInputTable
     Phase                :: Vector{TOMLInput_RigidBody_Phase}
-    density              :: Float64 = all(phase->phase.control, Phase) ? Inf : _undefkey(:density)
+    density              :: Float64 = all(phase->phase.control, Phase) ? Inf : undefkeyerror(:density)
     model                :: GeometricObject
     FrictionWithMaterial :: Vector{TOMLInput_RigidBody_FrictionWithMaterial}
     output               :: Bool = true
@@ -335,7 +368,7 @@ Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLTable
     body_force :: Nothing = nothing
 end
 
-mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}}
+mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}} <: InputTable
     Phase          :: Vector{Input_RigidBody_Phase{dim}}
     density        :: Float64
     model          :: Model
@@ -367,7 +400,7 @@ function convert_input(input::TOMLInput_RigidBody, ::Val{:body_force})
 end
 
 # Polygon
-Base.@kwdef mutable struct TOMLInput_RigidBody_model_Polygon <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Polygon <: TOMLInputTable
     coordinates :: Vector{Vector{Float64}}
 end
 function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_Polygon)
@@ -375,7 +408,7 @@ function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_
 end
 
 # Square
-Base.@kwdef mutable struct TOMLInput_RigidBody_model_Square <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Square <: TOMLInputTable
     centroid :: Vector{Float64}
     radius   :: Float64
     angle    :: Float64         = 0.0
@@ -393,7 +426,7 @@ function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_
 end
 
 # Triangle
-Base.@kwdef mutable struct TOMLInput_RigidBody_model_Triangle <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Triangle <: TOMLInputTable
     centroid :: Vector{Float64}
     radius   :: Float64
     angle    :: Float64         = 0.0
@@ -409,7 +442,7 @@ function Base.convert(::Type{GeometricObject}, model::TOMLInput_RigidBody_model_
 end
 
 # Circle
-Base.@kwdef mutable struct TOMLInput_RigidBody_model_Circle <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_RigidBody_model_Circle <: TOMLInputTable
     centroid :: Vector{Float64}
     radius   :: Float64
 end
@@ -421,7 +454,7 @@ end
 # Advanced #
 ############
 
-Base.@kwdef mutable struct TOMLInput_Advanced <: TOMLTable
+Base.@kwdef mutable struct TOMLInput_Advanced <: TOMLInputTable
     npoints_in_cell               :: Int     = 2
     contact_threshold_scale       :: Float64 = 1.0
     contact_penalty_parameter     :: Float64 = 0.0
@@ -429,7 +462,7 @@ Base.@kwdef mutable struct TOMLInput_Advanced <: TOMLTable
     dem_contact_penalty_parameter :: Float64 = 0.9
 end
 
-mutable struct Input_Advanced
+mutable struct Input_Advanced <: InputTable
     npoints_in_cell               :: Int
     contact_threshold_scale       :: Float64
     contact_penalty_parameter     :: Float64
@@ -442,7 +475,7 @@ end
 # TOMLInput #
 #############
 
-Base.@kwdef mutable struct TOMLInput <: TOMLTable
+Base.@kwdef mutable struct TOMLInput <: TOMLInputTable
     project           :: String                      = "."
     General           :: TOMLInput_General
     Phase             :: Vector{TOMLInput_Phase}
@@ -486,7 +519,7 @@ function construct_input(current::Vector{String}, dict::Dict{String, Any})
     end
 end
 
-function Base.show(io::IO, input::TOMLTable)
+function Base.show(io::IO, input::TOMLInputTable)
     println(io, typeof(input).name.name, ":")
     len = maximum(length ∘ string, propertynames(input))
     list = map(propertynames(input)) do name
@@ -497,7 +530,7 @@ function Base.show(io::IO, input::TOMLTable)
 end
 
 
-mutable struct Input{General, Phase, BoundaryCondition, Output, SoilLayer <: Vector, Material <: Vector, RigidBody <: Vector, Advanced, Injection}
+mutable struct Input{General, Phase, BoundaryCondition, Output, SoilLayer <: Vector, Material <: Vector, RigidBody <: Vector, Advanced, Injection} <: InputTable
     project           :: String
     General           :: General
     Phase             :: Phase
@@ -518,7 +551,7 @@ end
 # helper functions for convert_input
 convert_input(x) = x
 convert_input(x::Vector) = map(convert_input, x)
-@generated function convert_input(table::TOMLTable)
+@generated function convert_input(table::TOMLInputTable)
     names = fieldnames(table)
     exps = [:(convert_input(table, $(Val(name)))) for name in names]
     T = Symbol(replace(string(table.name.name), "TOML" => ""))
@@ -527,4 +560,4 @@ convert_input(x::Vector) = map(convert_input, x)
     end
 end
 
-convert_input(input::TOMLTable, ::Val{field}) where {field} = convert_input(getproperty(input, field))
+convert_input(input::TOMLInputTable, ::Val{field}) where {field} = convert_input(getproperty(input, field))
