@@ -5,3 +5,8 @@ NaturalSort = "c020b1a1-e9b0-503a-9c33-f039bfc54a85"
 ReadVTK = "dc215faf-f008-4882-a9f7-a79a826fadc3"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+CSV = "0.9"
+NaturalSort = "1"
+ReadVTK = "0.1"
