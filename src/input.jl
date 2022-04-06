@@ -3,7 +3,10 @@ using Poingr: Interpolation
 using GeometricObjects
 using TOML
 
-function parse_input(dict::Dict; project = ".", default_outdir = "output.tmp")
+function parse_input(dict::AbstractDict; project = ".", default_outdir = "output.tmp")
+    # check if dict has valid toml structure
+    sprint(TOML.print, dict)
+
     input = convert_input(TOMLInput(dict))
     input.project = project
     if isempty(input.Output.directory)

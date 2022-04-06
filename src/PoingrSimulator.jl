@@ -38,16 +38,18 @@ function main(tomlfile::AbstractString)
     injection_file = joinpath(project, "injection.jl")
     filename = first(splitext(basename(tomlfile)))
     main(
-        read(tomlfile, String),
-        isfile(injection_file) ? include(injection_file) : Module();
+        TOML.parsefile(tomlfile);
+        injection = isfile(injection_file) ? include(injection_file) : Module(),
         project,
         default_outdir = string(filename, ".tmp"),
     )
 end
 
-function main(inputtoml::AbstractString, Injection::Module; project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
+function main(dict::AbstractDict; injection::Module = Module(), project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
+    inputtoml = sprint(TOML.print, dict)
+
     input = parse_input(inputtoml; project, default_outdir)
-    input.Injection = Injection
+    input.Injection = injection
     mkpath(input.Output.directory)
     if input.Output.copy_inputfile
         write(joinpath(input.Output.directory, "input.toml"), inputtoml)
