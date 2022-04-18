@@ -9,10 +9,10 @@ using Serialization
 
 function preprocess_input!(input::Input)
     input.Material = input.SoilLayer
-    input.BoundaryCondition.left   = Contact(:slip)
-    input.BoundaryCondition.right  = Contact(:slip)
-    input.BoundaryCondition.bottom = Contact(:sticky)
-    input.BoundaryCondition.top    = Contact(:slip)
+    input.BoundaryCondition.left   = ContactMohrCoulomb(:slip)
+    input.BoundaryCondition.right  = ContactMohrCoulomb(:slip)
+    input.BoundaryCondition.bottom = ContactMohrCoulomb(:sticky)
+    input.BoundaryCondition.top    = ContactMohrCoulomb(:slip)
     for rigidbody in input.RigidBody
         @assert rigidbody.control == true
         # for calculation of effective mass in collision

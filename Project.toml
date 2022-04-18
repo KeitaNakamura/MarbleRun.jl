@@ -15,7 +15,7 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 [compat]
 GeometricObjects = "0.5"
 MaterialModels = "0.6"
-Poingr = "0.22"
+Poingr = "0.23"
 StructArrays = "0.6"
 UnicodePlots = "1, 2"
 julia = "1.6"

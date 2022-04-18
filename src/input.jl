@@ -172,15 +172,15 @@ Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLInputTable
 end
 
 mutable struct Input_BoundaryCondition{Dirichlet} <: InputTable
-    top    :: Contact
-    bottom :: Contact
-    left   :: Contact
-    right  :: Contact
+    top    :: ContactMohrCoulomb
+    bottom :: ContactMohrCoulomb
+    left   :: ContactMohrCoulomb
+    right  :: ContactMohrCoulomb
     Dirichlet :: Vector{Dirichlet}
 end
 
 function convert_input(input::TOMLInput_BoundaryCondition, ::Val{field}) where {field}
-    field != :Dirichlet && return Contact(:friction, getproperty(input, field))
+    field != :Dirichlet && return ContactMohrCoulomb(; μ = getproperty(input, field))
     map(convert_input, input.Dirichlet)
 end
 

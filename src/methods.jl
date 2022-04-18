@@ -171,6 +171,8 @@ function advancestep!(grid::Grid{dim}, pointstate::AbstractVector, rigidbodies, 
     end
 
     # Boundary conditions
+    # for dirichlet boundary condition, Mohr-Coulomb frictional contact cannot be used for now.
+    # the given nodal velocity is directly applied.
     for dirichlet in input.BoundaryCondition.Dirichlet
         dirichlet.displacement += norm(dirichlet.velocity) * dt
         dirichlet.reaction_force = 0.0
@@ -245,7 +247,7 @@ function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, �
     vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
     f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
-    Contact(:friction, μ[1]; sep = true, thresh = μ[2])(f_nor + f_tan, n)
+    contacted(ContactMohrCoulomb(; μ = μ[1], c = μ[2], separation = true), f_nor + f_tan, -n)
 end
 
 ##########################
@@ -338,12 +340,12 @@ end
 ######################
 
 function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
-    n == Vec(-1,  0) && (side = :left)
-    n == Vec( 1,  0) && (side = :right)
-    n == Vec( 0, -1) && (side = :bottom)
-    n == Vec( 0,  1) && (side = :top)
-    contact = getproperty(bc, side)
-    v + contact(v, n)
+    n == Vec( 1,  0) && (side = :left)
+    n == Vec(-1,  0) && (side = :right)
+    n == Vec( 0,  1) && (side = :bottom)
+    n == Vec( 0, -1) && (side = :top)
+    cond = getproperty(bc, side)
+    v + contacted(cond, v, n)
 end
 
 ##################################
