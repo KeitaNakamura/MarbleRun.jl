@@ -6,6 +6,8 @@ coordinate_system = "axisymmetric"   # planestrain or axisymmetric
 domain = [[0.0, 10.0], [-15.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space = 0.5                     # (m)
 gravity = 9.81                       # (m/s2)
+interpolation = "KernelCorrection(QuadraticBSpline())"
+transfer = "TransferAffinePIC()"
 showprogress = false
 
 [[Phase]]
