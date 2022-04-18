@@ -82,8 +82,8 @@ end
 
 function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material, g)
     init_stress_mass!(pointstate, material, g)
+    @. pointstate.x0 = pointstate.x
     @. pointstate.b = Vec(0.0, -g)
-    pointstate
 end
 
 function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material{Model, Init}, g) where {Model, Init}
@@ -385,6 +385,7 @@ end
 function write_vtk_points(vtk, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
+    vtk["displacement"] = @dot_lazy pointstate.x - pointstate.x0
     vtk["velocity"] = pointstate.v
     vtk["mean stress"] = @dot_lazy mean(σ)
     vtk["pressure"] = @dot_lazy -mean(σ)

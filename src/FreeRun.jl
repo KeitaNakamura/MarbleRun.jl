@@ -32,6 +32,7 @@ function initialize(input::Input)
         m::Float64
         V::Float64
         x::Vec{2, Float64}
+        x0::Vec{2, Float64}
         v::Vec{2, Float64}
         b::Vec{2, Float64}
         fc::Vec{2, Float64}

@@ -39,6 +39,7 @@ function initialize(input::Input)
         m::Float64
         V::Float64
         x::Vec{2, Float64}
+        x0::Vec{2, Float64}
         v::Vec{2, Float64}
         b::Vec{2, Float64}
         σ::SymmetricSecondOrderTensor{3, Float64, 6}
@@ -103,6 +104,7 @@ function initialize(input::Input)
                                  0.0 0.0 σ_x]) |> symmetric
         pointstate.m[p] = ρ0 * pointstate.V[p]
     end
+    @. pointstate.x0 = pointstate.x
     @. pointstate.b = Vec(0.0, -g)
 
     if only(input.RigidBody).reset_position
