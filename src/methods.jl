@@ -68,9 +68,12 @@ function remove_invalid_pointstate!(pointstate, input::Input)
         findall(eachindex(pointstate)) do p
             xₚ = pointstate.x[p]
             rₚ = pointstate.r[p]
-            any(map(x -> x.model, input.RigidBody)) do rigidbody
+            any(input.RigidBody) do input_rigidbody
+                rigidbody = input_rigidbody.model
+                inverse = input_rigidbody.inverse
+                isinbody = in(xₚ, rigidbody)
                 # remove pointstate which is in rigidbody or is in contact with rigidbody
-                in(xₚ, rigidbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
+                (inverse ? !isinbody : isinbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
             end
         end,
     )

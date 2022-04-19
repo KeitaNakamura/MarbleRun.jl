@@ -362,6 +362,7 @@ end
 Base.@kwdef mutable struct TOMLInput_RigidBody <: TOMLInputTable
     Phase                :: Vector{TOMLInput_RigidBody_Phase}
     density              :: Float64 = all(phase->phase.control, Phase) ? Inf : undefkeyerror(:density)
+    inverse              :: Bool = false
     model                :: GeometricObject
     FrictionWithMaterial :: Vector{TOMLInput_RigidBody_FrictionWithMaterial}
     output               :: Bool = true
@@ -374,6 +375,7 @@ end
 mutable struct Input_RigidBody{dim, Model <: GeometricObject{dim}} <: InputTable
     Phase          :: Vector{Input_RigidBody_Phase{dim}}
     density        :: Float64
+    inverse        :: Bool
     model          :: Model
     frictions      :: Vector{Vector{Vec{2, Float64}}}
     output         :: Bool
