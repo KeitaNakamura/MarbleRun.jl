@@ -32,27 +32,35 @@ function julia_main()::Cint
     return 0
 end
 
-function main(tomlfile::AbstractString)
+function main(toml::AbstractString; kwargs...)
+    if isfile(toml) && endswith(toml, ".toml")
+        main_tomlfile(toml; kwargs...)
+    else
+        main_tomlstring(toml; kwargs...)
+    end
+end
+
+# from toml file
+function main_tomlfile(tomlfile::AbstractString)
     @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
     project = dirname(tomlfile)
     injection_file = joinpath(project, "injection.jl")
     filename = first(splitext(basename(tomlfile)))
-    main(
-        TOML.parsefile(tomlfile);
+    main_tomlstring(
+        read(tomlfile, String);
         injection = isfile(injection_file) ? include(injection_file) : Module(),
         project,
         default_outdir = string(filename, ".tmp"),
     )
 end
 
-function main(dict::AbstractDict; injection::Module = Module(), project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
-    inputtoml = sprint(TOML.print, dict)
-
-    input = parse_input(inputtoml; project, default_outdir)
+# from toml string
+function main_tomlstring(toml::AbstractString; injection::Module = Module(), project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
+    input = parse_input(toml; project, default_outdir)
     input.Injection = injection
     mkpath(input.Output.directory)
     if input.Output.copy_inputfile
-        write(joinpath(input.Output.directory, "input.toml"), inputtoml)
+        write(joinpath(input.Output.directory, "input.toml"), toml)
     end
     main(input, input.Phase)
 end
