@@ -26,6 +26,8 @@ function initialize(input::Input)
         fc::Vec{2, Float64}
         d::Vec{2, Float64}
         μ::Vec{2, Float64} # [μ, c]
+        poly_coef::Vec{3, Float64}
+        poly_mat::Mat{3, 3, Float64, 9}
     end
     L = isa(input.General.transfer, LinearWLS) ? 3 : 2
     PointState = @NamedTuple begin
@@ -39,6 +41,7 @@ function initialize(input::Input)
         σ::SymmetricSecondOrderTensor{3, Float64, 6}
         ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
         ∇v::SecondOrderTensor{3, Float64, 9}
+        P::Float64
         C::Mat{2, L, Float64, 2*L}
         r::Vec{2, Float64}
         index::Int

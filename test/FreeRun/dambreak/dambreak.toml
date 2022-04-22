@@ -8,6 +8,7 @@ grid_space = 0.05                  # (m) <0.014>
 gravity    = 9.81                  # (m/s2)
 interpolation = "KernelCorrection(QuadraticBSpline())"
 transfer = "TransferAffinePIC()"
+v_p_formulation = true
 showprogress = false
 
 [[Phase]] # to get initial pressure distributions

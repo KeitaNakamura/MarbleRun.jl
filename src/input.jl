@@ -97,6 +97,7 @@ Base.@kwdef mutable struct TOMLInput_General <: TOMLInputTable
     gravity           :: Float64
     interpolation     :: EvalString{Interpolation} = "LinearWLS(QuadraticBSpline())"
     transfer          :: EvalString{Transfer}      = "Transfer()"
+    v_p_formulation   :: Bool                      = false
     showprogress      :: Bool                      = true
 end
 
@@ -108,6 +109,7 @@ mutable struct Input_General{CoordSystem <: CoordinateSystem, Interp <: Interpol
     gravity           :: Float64
     interpolation     :: Interp
     transfer          :: Trans
+    v_p_formulation   :: Bool
     showprogress      :: Bool
 end
 

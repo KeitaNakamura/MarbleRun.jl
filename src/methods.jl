@@ -278,6 +278,20 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
             pointstate.∇v[p] = zero(pointstate.∇v[p])
         end
     end
+
+    if input.General.v_p_formulation
+        @dot_threads pointstate.P = -mean(pointstate.σ)
+        Poingr.smooth_pointstate!(pointstate.P, pointstate.V, grid, cache)
+        @inbounds Threads.@threads for p in eachindex(pointstate)
+            matindex = pointstate.matindex[p]
+            model = models[matindex]
+            P = pointstate.P[p]
+            σ = pointstate.σ[p]
+            ρ = @matcalc(:density, model; p = P)
+            pointstate.σ[p] = -P*I + dev(σ)
+            pointstate.V[p] = pointstate.m[p] / ρ
+        end
+    end
 end
 
 # compute contact force at points
