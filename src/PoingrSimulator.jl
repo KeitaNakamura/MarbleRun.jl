@@ -33,7 +33,12 @@ function julia_main()::Cint
 end
 
 function main(toml::AbstractString; kwargs...)
-    if isfile(toml) && endswith(toml, ".toml")
+    istomlfile = try
+        isfile(toml) && endswith(toml, ".toml")
+    catch e # handle error "name too long" in `isfile`
+        false
+    end
+    if istomlfile
         main_tomlfile(toml; kwargs...)
     else
         main_tomlstring(toml; kwargs...)
