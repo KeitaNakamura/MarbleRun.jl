@@ -239,18 +239,19 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
     @dot_threads grid.state.d /= grid.state.m
     @dot_threads grid.state.vᵣ /= grid.state.m_contacted
     @dot_threads grid.state.μ /= grid.state.m_contacted
-    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m′, dt, grid.state.μ, ξ)
+    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m′, dt, grid.state.μ, ξ, $(prod(gridsteps(grid))))
     @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
     mask
 end
 
-function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::Vec{2, T}, ξ::T) where {dim, T}
+function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::Vec{2, T}, ξ::T, A::T = one(T)) where {dim, T}
     iszero(d) && return zero(Vec{dim, T})
     n = normalize(d)
     vᵣ_tan = vᵣ - (vᵣ ⋅ n) * n
     f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
-    contacted(ContactMohrCoulomb(; μ = μ[1], c = μ[2], separation = true), f_nor + f_tan, -n)
+    # calculate contact force by using stress (F/A) to handle cohesion properly
+    contacted(ContactMohrCoulomb(; μ = μ[1], c = μ[2], separation = true), (f_nor+f_tan)/A, -n) * A
 end
 
 ##########################
