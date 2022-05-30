@@ -2,17 +2,19 @@ module PenetrateIntoGround
 
 using PoingrSimulator
 using PoingrSimulator: Input, Input_Phase
-using Poingr
+using Marble
 using GeometricObjects
 
 using Serialization
 
 function preprocess_input!(input::Input)
     input.Material = input.SoilLayer
-    input.BoundaryCondition.left   = ContactMohrCoulomb(:slip)
-    input.BoundaryCondition.right  = ContactMohrCoulomb(:slip)
-    input.BoundaryCondition.bottom = ContactMohrCoulomb(:sticky)
-    input.BoundaryCondition.top    = ContactMohrCoulomb(:slip)
+    input.BoundaryCondition.sides = [
+        "-x" => CoulombFriction(:slip),
+        "+x" => CoulombFriction(:slip),
+        "-y" => CoulombFriction(:sticky),
+        "+y" => CoulombFriction(:slip),
+    ]
     for rigidbody in input.RigidBody
         @assert rigidbody.control == true
         # for calculation of effective mass in collision
@@ -188,7 +190,7 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
 
             if islogpoint(logger)
                 if input.Advanced.reorder_pointstate
-                    Poingr.reorder_pointstate!(pointstate, cache)
+                    Marble.reorder_pointstate!(pointstate, cache)
                 end
                 writeoutput(outputs, input, grid, pointstate, rigidbody, rigidbody0, t, logindex(logger))
             end

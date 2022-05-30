@@ -92,14 +92,14 @@ function compute_contactforce_position(X::GeometricObject, Y::GeometricObject, d
 end
 
 # for boundaries
-function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Polygon}, Y::Grid{2}, dt::Real, input)
+function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Polygon}, Y::Grid{<: Any, 2}, dt::Real, input)
     frame = GeometricObject(Polygon(Y[1,1], Y[end,1], Y[end,end], Y[1,end]))
     frame.m = Inf
     vals = compute_distance_threshold_pointposition(X[], frame[]; reverse1 = false, reverse2 = true)
     vals === nothing && return nothing
     _compute_contactforce_position(input, X, frame, dt, vals...)
 end
-function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Circle}, Y::Grid{2}, dt::Real, input)
+function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Circle}, Y::Grid{<: Any, 2}, dt::Real, input)
     frame = GeometricObject(Polygon(Y[1,1], Y[end,1], Y[end,end], Y[1,end]))
     frame.m = Inf
     vals = compute_distance_threshold_pointposition(X[], frame[])
