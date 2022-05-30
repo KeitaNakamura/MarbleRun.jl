@@ -533,7 +533,7 @@ function Base.show(io::IO, input::TOMLInputTable)
     println(io, typeof(input).name.name, ":")
     len = maximum(length ∘ string, propertynames(input))
     list = map(propertynames(input)) do name
-        type = replace(string(fieldtype(typeof(input), name)), "PoingrSimulator." => "", "Marble." => "")
+        type = replace(string(fieldtype(typeof(input), name)), "MarbleBot." => "", "Marble." => "")
         string(" ", rpad(name, len), " :: ", type)
     end
     print(io, join(list, '\n'))

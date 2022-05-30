@@ -1,6 +1,6 @@
 module Injection
 
-using PoingrSimulator.GeometricObjects
+using MarbleBot.GeometricObjects
 
 function main_output_initialize(args)
     input = args.input

@@ -1,4 +1,4 @@
-module PoingrSimulator
+module MarbleBot
 
 using Marble
 using MaterialModels

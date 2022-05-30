@@ -1,7 +1,7 @@
 module PenetrateIntoGround
 
-using PoingrSimulator
-using PoingrSimulator: Input, Input_Phase
+using MarbleBot
+using MarbleBot: Input, Input_Phase
 using Marble
 using GeometricObjects
 
@@ -117,7 +117,7 @@ function initialize(input::Input)
         δ = sqrt(eps(Float64))
         translate!(rigidbody, Vec(0.0, (ymin - y0) + H + (α-1)*(dx/nptsincell)/2 + δ))
     else
-        PoingrSimulator.remove_invalid_pointstate!(pointstate, input)
+        MarbleBot.remove_invalid_pointstate!(pointstate, input)
     end
 
     t = 0.0
@@ -177,13 +177,13 @@ function main(input::Input, phase::Input_Phase, t, grid, pointstate, rigidbody, 
 
     try
         while !isfinised(logger, t)
-            dt = phase.CFL * PoingrSimulator.safe_minimum(pointstate) do pt
-                PoingrSimulator.timestep(matmodels[pt.matindex], pt, dx)
+            dt = phase.CFL * MarbleBot.safe_minimum(pointstate) do pt
+                MarbleBot.timestep(matmodels[pt.matindex], pt, dx)
             end
-            PoingrSimulator.advancestep!(grid, pointstate, [rigidbody], cache, dt, input, phase)
+            MarbleBot.advancestep!(grid, pointstate, [rigidbody], cache, dt, input, phase)
 
             if input.Output.quickview
-                update!(logger, t += dt; print = PoingrSimulator.quickview_sparsity_pattern(cache.spat))
+                update!(logger, t += dt; print = MarbleBot.quickview_sparsity_pattern(cache.spat))
             else
                 update!(logger, t += dt)
             end
@@ -226,7 +226,7 @@ function writeoutput(
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x; compress) do vtk
-                    PoingrSimulator.write_vtk_points(vtk, pointstate)
+                    MarbleBot.write_vtk_points(vtk, pointstate)
                 end
                 vtk_grid(vtm, rigidbody)
                 if input.Output.paraview_grid
