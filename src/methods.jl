@@ -39,12 +39,12 @@ end
 # material-wise initialization.
 # After initialization, these `pointstate`s will be concatenated.
 # Then, if you have rigid bodies, the invalid points are removed.
-function Poingr.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
+function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
     # generate all pointstate first
     Material = input.Material
     pointstates = map(1:length(Material)) do matindex
         material = Material[matindex]
-        pointstate′ = generate_pointstate( # call method in `Poingr`
+        pointstate′ = generate_pointstate( # call method in `Marble`
             material.region,
             PointState,
             grid;
@@ -128,7 +128,7 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{dim}, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase) where {dim}
+function advancestep!(grid::Grid{<: Any, dim}, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
@@ -174,29 +174,23 @@ function advancestep!(grid::Grid{dim}, pointstate::AbstractVector, rigidbodies, 
     end
 
     # Boundary conditions
-    # for dirichlet boundary condition, Mohr-Coulomb frictional contact cannot be used for now.
+    # for dirichlet boundary condition, Coulomb frictional contact cannot be used for now.
     # the given nodal velocity is directly applied.
     for dirichlet in input.BoundaryCondition.Dirichlet
+        fᵢ′ = 0.0
+        @inbounds for I in dirichlet.node_indices
+            vᵢ = grid.state.v[I]
+            vᵢ′ = dirichlet.velocity
+            fᵢ′ += grid.state.m[I] * (norm(vᵢ-vᵢ′) / dt)
+            grid.state.v[I] = vᵢ′
+        end
         dirichlet.displacement += norm(dirichlet.velocity) * dt
-        dirichlet.reaction_force = 0.0
+        dirichlet.reaction_force = fᵢ′
     end
-    @inbounds for bound in eachboundary(grid)
-        I = bound.I
-        vᵢ = grid.state.v[I]
-        v = vᵢ
-        isdirichlet = false
-        for dirichlet in input.BoundaryCondition.Dirichlet
-            if dirichlet.active_nodes[I]
-                vᵢ′ = dirichlet.velocity
-                dirichlet.reaction_force += grid.state.m[I] * (norm(vᵢ-vᵢ′) / dt)
-                v = vᵢ′
-                isdirichlet = true
-            end
+    for (side, cond) in input.BoundaryCondition.sides
+        @inbounds for (I,n) in boundaries(grid, side)
+            grid.state.v[I] += contacted(cond, grid.state.v[I], n)
         end
-        if !isdirichlet
-            v = boundary_velocity(vᵢ, bound.n, input.BoundaryCondition)
-        end
-        grid.state.v[I] = v
     end
 
     # Grid-to-point transfer
@@ -251,7 +245,7 @@ function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, �
     f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
     # calculate contact force by using stress (F/A) to handle cohesion properly
-    contacted(ContactMohrCoulomb(; μ = μ[1], c = μ[2], separation = true), (f_nor+f_tan)/A, -n) * A
+    contacted(CoulombFriction(; μ = μ[1], c = μ[2], separation = true), (f_nor+f_tan)/A, -n) * A
 end
 
 ##########################
@@ -282,7 +276,7 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
 
     if input.General.v_p_formulation
         @dot_threads pointstate.P = -mean(pointstate.σ)
-        Poingr.smooth_pointstate!(pointstate.P, pointstate.V, grid, cache)
+        Marble.smooth_pointstate!(pointstate.P, pointstate.V, grid, cache)
         @inbounds Threads.@threads for p in eachindex(pointstate)
             matindex = pointstate.matindex[p]
             model = models[matindex]
@@ -297,7 +291,7 @@ end
 
 # compute contact force at points
 function G2P_contact!(pointstate::AbstractVector, grid::Grid, cache::MPCache, rigidbody::GeometricObject, mask::AbstractVector{Bool})
-    Poingr.fillzero!(pointstate.fc)
+    Marble.fillzero!(pointstate.fc)
     grid_to_point!(pointstate.fc, cache, mask) do it, I, p
         @_inline_meta
         @_propagate_inbounds_meta

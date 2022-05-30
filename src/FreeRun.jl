@@ -2,7 +2,7 @@ module FreeRun
 
 using PoingrSimulator
 using PoingrSimulator: Input, Input_Phase
-using Poingr
+using Marble
 using GeometricObjects
 
 using Serialization
@@ -64,15 +64,14 @@ function initialize(input::Input)
     t = 0.0
 
     for dirichlet in input.BoundaryCondition.Dirichlet
-        active_nodes = map(x -> dirichlet.inbounds(x[1], x[2]), grid)
-        setbounds!(grid, active_nodes)
-        dirichlet.active_nodes = active_nodes
+        node_indices = findall(x -> dirichlet.region(x[1], x[2]), grid)
+        dirichlet.node_indices = node_indices
     end
 
     t, grid, pointstate, rigidbodies
 end
 
-function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, rigidbodies) where {dim}
+function main(input::Input, phase::Input_Phase, t, grid::Grid{<: Any, dim}, pointstate, rigidbodies) where {dim}
 
     # General/Output
     dx = input.General.grid_space
@@ -160,7 +159,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{dim}, pointstate, 
 
             if islogpoint(logger)
                 if input.Advanced.reorder_pointstate
-                    Poingr.reorder_pointstate!(pointstate, cache)
+                    Marble.reorder_pointstate!(pointstate, cache)
                 end
                 writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
             end

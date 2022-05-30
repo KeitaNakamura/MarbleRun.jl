@@ -1,6 +1,6 @@
 module PoingrSimulator
 
-using Poingr
+using Marble
 using MaterialModels
 using GeometricObjects
 using UnicodePlots

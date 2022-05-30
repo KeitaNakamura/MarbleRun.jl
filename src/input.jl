@@ -1,5 +1,5 @@
-using Poingr
-using Poingr: Interpolation
+using Marble
+using Marble: Interpolation
 using GeometricObjects
 using TOML
 
@@ -145,24 +145,24 @@ end
 
 # dirichlet
 Base.@kwdef struct TOMLInput_BoundaryCondition_Dirichlet <: TOMLInputTable
-    inbounds :: EvalString{Function}
+    region   :: EvalString{Function}
     velocity :: ToVec
     output   :: Bool = true
 end
 mutable struct Input_BoundaryCondition_Dirichlet{dim} <: InputTable
-    inbounds       :: Function
+    region         :: Function
     velocity       :: Vec{dim, Float64}
     output         :: Bool
     displacement   :: Float64
     reaction_force :: Float64
-    active_nodes   :: Array{Bool, dim}
+    node_indices   :: Vector{CartesianIndex{dim}}
 end
 function convert_input(input::TOMLInput_BoundaryCondition_Dirichlet)
-    inbounds = convert_input(input.inbounds)
+    region = convert_input(input.region)
     velocity = convert_input(input.velocity)
     output = input.output
     dim = length(velocity)
-    Input_BoundaryCondition_Dirichlet(inbounds, velocity, output, 0.0, 0.0, Array{Bool, dim}(undef, fill(0, dim)...))
+    Input_BoundaryCondition_Dirichlet(region, velocity, output, 0.0, 0.0, CartesianIndex{dim}[])
 end
 
 Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLInputTable
@@ -174,16 +174,19 @@ Base.@kwdef mutable struct TOMLInput_BoundaryCondition <: TOMLInputTable
 end
 
 mutable struct Input_BoundaryCondition{Dirichlet} <: InputTable
-    top    :: ContactMohrCoulomb
-    bottom :: ContactMohrCoulomb
-    left   :: ContactMohrCoulomb
-    right  :: ContactMohrCoulomb
+    sides     :: Vector{Pair{String, CoulombFriction}}
     Dirichlet :: Vector{Dirichlet}
 end
 
-function convert_input(input::TOMLInput_BoundaryCondition, ::Val{field}) where {field}
-    field != :Dirichlet && return ContactMohrCoulomb(; μ = getproperty(input, field))
-    map(convert_input, input.Dirichlet)
+function convert_input(input::TOMLInput_BoundaryCondition)
+    sides = [
+        "-x" => CoulombFriction(; μ = input.left),
+        "+x" => CoulombFriction(; μ = input.right),
+        "-y" => CoulombFriction(; μ = input.bottom),
+        "+y" => CoulombFriction(; μ = input.top),
+    ]
+    Dirichlet = map(convert_input, input.Dirichlet)
+    Input_BoundaryCondition(sides, Dirichlet)
 end
 
 ##########
@@ -530,7 +533,7 @@ function Base.show(io::IO, input::TOMLInputTable)
     println(io, typeof(input).name.name, ":")
     len = maximum(length ∘ string, propertynames(input))
     list = map(propertynames(input)) do name
-        type = replace(string(fieldtype(typeof(input), name)), "PoingrSimulator." => "", "Poingr." => "")
+        type = replace(string(fieldtype(typeof(input), name)), "PoingrSimulator." => "", "Marble." => "")
         string(" ", rpad(name, len), " :: ", type)
     end
     print(io, join(list, '\n'))
