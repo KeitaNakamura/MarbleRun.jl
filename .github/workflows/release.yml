@@ -5,7 +5,7 @@ on:
     tags: '*'
 
 env:
-  packagename: PoingrSimulator
+  packagename: MarbleBot
 
 jobs:
   compile:
