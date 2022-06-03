@@ -128,13 +128,13 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{<: Any, dim}, pointstate::AbstractVector, rigidbodies, cache, dt, input::Input, phase::Input_Phase) where {dim}
+function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
 
     if isempty(rigidbodies)
-        update!(cache, grid, pointstate)
+        update!(space, pointstate)
     else
         spatmasks = [falses(size(grid)) for i in 1:Threads.nthreads()]
         Threads.@threads for rigidbody in rigidbodies
@@ -142,11 +142,12 @@ function advancestep!(grid::Grid{<: Any, dim}, pointstate::AbstractVector, rigid
             broadcast!(in(rigidbody), mask, grid)
         end
         exclude = broadcast(|, spatmasks...)
-        update!(cache, grid, pointstate; exclude)
+        update!(space, pointstate; exclude)
     end
+    update_sppattern!(gridstate, space)
 
     # Point-to-grid transfer
-    P2G!(grid, pointstate, cache, dt, input)
+    P2G!(gridstate, pointstate, space, dt, input)
 
     # Compute contact forces between rigid bodies
     contact_forces = fill(zero(Vec{dim}), length(rigidbodies))
@@ -157,14 +158,14 @@ function advancestep!(grid::Grid{<: Any, dim}, pointstate::AbstractVector, rigid
     for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
-        mask = P2G_contact!(grid, pointstate, cache, dt, rigidbody, input_rigidbody.frictions, α, ξ)
+        mask = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.frictions, α, ξ)
         if phase.update_motion == true
             # Update rigid bodies
             b = input_rigidbody.body_force
             if input_rigidbody.control
                 GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
             else
-                G2P_contact!(pointstate, grid, cache, rigidbody, mask)
+                G2P_contact!(pointstate, gridstate, space, rigidbody, mask)
                 inds = findall(mask)
                 Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
                 Fc += rigidbody.m * Vec(0,-g) + b
@@ -179,36 +180,36 @@ function advancestep!(grid::Grid{<: Any, dim}, pointstate::AbstractVector, rigid
     for dirichlet in input.BoundaryCondition.Dirichlet
         fᵢ′ = 0.0
         @inbounds for I in dirichlet.node_indices
-            vᵢ = grid.state.v[I]
+            vᵢ = gridstate.v[I]
             vᵢ′ = dirichlet.velocity
-            fᵢ′ += grid.state.m[I] * (norm(vᵢ-vᵢ′) / dt)
-            grid.state.v[I] = vᵢ′
+            fᵢ′ += gridstate.m[I] * (norm(vᵢ-vᵢ′) / dt)
+            gridstate.v[I] = vᵢ′
         end
         dirichlet.displacement += norm(dirichlet.velocity) * dt
         dirichlet.reaction_force = fᵢ′
     end
     for (side, cond) in input.BoundaryCondition.sides
-        @inbounds for (I,n) in boundaries(grid, side)
-            grid.state.v[I] += contacted(cond, grid.state.v[I], n)
+        @inbounds for (I,n) in gridbounds(grid, side)
+            gridstate.v[I] += contacted(cond, gridstate.v[I], n)
         end
     end
 
     # Grid-to-point transfer
-    G2P!(pointstate, grid, cache, matmodels, dt, input, phase)
+    G2P!(pointstate, gridstate, space, matmodels, dt, input, phase)
 end
 
 ##########################
 # point-to-grid transfer #
 ##########################
 
-function P2G!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, input::Input)
-    input.General.transfer.point_to_grid!(grid, pointstate, cache, dt)
+function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::Input)
+    input.General.transfer.point_to_grid!(gridstate, pointstate, space, dt)
 end
 
-function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
+function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
     mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
     !any(mask) && return mask
-    point_to_grid!((grid.state.d, grid.state.vᵣ, grid.state.μ, grid.state.m_contacted), cache, mask) do it, p, i
+    point_to_grid!((gridstate.d, gridstate.vᵣ, gridstate.μ, gridstate.m_contacted), space, mask) do it, p, i
         @_inline_meta
         @_propagate_inbounds_meta
         N = it.N
@@ -229,12 +230,12 @@ function P2G_contact!(grid::Grid, pointstate::AbstractVector, cache::MPCache, dt
         vᵣ = vₚ - velocityat(rigidbody, xₚ)
         m*d, m*vᵣ, m*μ, m
     end
-    @dot_threads grid.state.m′ = grid.state.m / (grid.state.m/rigidbody.m + 1)
-    @dot_threads grid.state.d /= grid.state.m
-    @dot_threads grid.state.vᵣ /= grid.state.m_contacted
-    @dot_threads grid.state.μ /= grid.state.m_contacted
-    @dot_threads grid.state.fc = compute_contact_force(grid.state.d, grid.state.vᵣ, grid.state.m′, dt, grid.state.μ, ξ, $(prod(gridsteps(grid))))
-    @dot_threads grid.state.v += (grid.state.fc / grid.state.m) * dt
+    @dot_threads gridstate.m′ = gridstate.m / (gridstate.m/rigidbody.m + 1)
+    @dot_threads gridstate.d /= gridstate.m
+    @dot_threads gridstate.vᵣ /= gridstate.m_contacted
+    @dot_threads gridstate.μ /= gridstate.m_contacted
+    @dot_threads gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(prod(gridsteps(space.grid))))
+    @dot_threads gridstate.v += (gridstate.fc / gridstate.m) * dt
     mask
 end
 
@@ -252,8 +253,8 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
-    input.General.transfer.grid_to_point!(pointstate, grid, cache, dt)
+function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
+    input.General.transfer.grid_to_point!(pointstate, gridstate, space, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
@@ -276,7 +277,7 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
 
     if input.General.v_p_formulation
         @dot_threads pointstate.P = -mean(pointstate.σ)
-        Marble.smooth_pointstate!(pointstate.P, pointstate.V, grid, cache)
+        Marble.smooth_pointstate!(pointstate.P, pointstate.V, gridstate, space)
         @inbounds Threads.@threads for p in eachindex(pointstate)
             matindex = pointstate.matindex[p]
             model = models[matindex]
@@ -290,13 +291,13 @@ function G2P!(pointstate::AbstractVector, grid::Grid, cache::MPCache, models::Ve
 end
 
 # compute contact force at points
-function G2P_contact!(pointstate::AbstractVector, grid::Grid, cache::MPCache, rigidbody::GeometricObject, mask::AbstractVector{Bool})
+function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, rigidbody::GeometricObject, mask::AbstractVector{Bool})
     Marble.fillzero!(pointstate.fc)
-    grid_to_point!(pointstate.fc, cache, mask) do it, I, p
+    grid_to_point!(pointstate.fc, space, mask) do it, I, p
         @_inline_meta
         @_propagate_inbounds_meta
-        fc = grid.state.fc[I]
-        -fc * it.N * pointstate.m[p] / grid.state.m_contacted[I]
+        fc = gridstate.fc[I]
+        -fc * it.N * pointstate.m[p] / gridstate.m_contacted[I]
     end
 end
 
@@ -364,7 +365,7 @@ end
 # contact forces/moments for DEM #
 ##################################
 
-function compute_contact_forces_moments!(contact_forces::Vector, contact_moments::Vector, rigidbodies, grid, dt, input)
+function compute_contact_forces_moments!(contact_forces::Vector, contact_moments::Vector, rigidbodies, grid::Grid, dt, input)
     @assert length(contact_forces) == length(contact_moments) == length(rigidbodies) == length(input.RigidBody)
     @inbounds for (i, rigidbody1) in enumerate(rigidbodies)
         input.RigidBody[i].control && continue

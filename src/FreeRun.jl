@@ -16,7 +16,7 @@ function preprocess_input!(input::Input)
 end
 
 function initialize(input::Input)
-    NodeState = @NamedTuple begin
+    GridState = @NamedTuple begin
         m::Float64
         m′::Float64
         v::Vec{2, Float64}
@@ -56,7 +56,8 @@ function initialize(input::Input)
     materials = input.Material
     rigidbodies = map(x -> x.model, input.RigidBody)
 
-    grid = Grid(NodeState, input.General.interpolation, xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    grid = Grid(xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    gridstate = generate_gridstate(GridState, grid)
     pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
         MarbleBot.initialize_pointstate!(pointstate, materials[matindex], g)
         @. pointstate.matindex = matindex
@@ -68,10 +69,10 @@ function initialize(input::Input)
         dirichlet.node_indices = node_indices
     end
 
-    t, grid, pointstate, rigidbodies
+    t, grid, gridstate, pointstate, rigidbodies
 end
 
-function main(input::Input, phase::Input_Phase, t, grid::Grid{<: Any, dim}, pointstate, rigidbodies) where {dim}
+function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::AbstractArray, pointstate::AbstractVector, rigidbodies)
 
     # General/Output
     dx = input.General.grid_space
@@ -111,6 +112,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{<: Any, dim}, poin
         RigidBody = input.RigidBody
         for i in eachindex(RigidBody)
             if RigidBody[i].output
+                dim = ndims(grid)
                 dir = joinpath(outdir, "rigidbodies", "$i")
                 mkpath(dir)
                 history_file = joinpath(dir, "history.csv")
@@ -130,6 +132,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{<: Any, dim}, poin
             input,
             t,
             grid,
+            gridstate,
             pointstate,
             rigidbodies,
         ))
@@ -139,40 +142,40 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid{<: Any, dim}, poin
     # Run simulation #
     ##################
 
-    cache = MPCache(grid, pointstate.x)
+    space = MPSpace(input.General.interpolation, grid, pointstate.x)
     logger = Logger(t_start, t_stop, t_step; input.General.showprogress)
     update!(logger, t)
-    writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
+    writeoutput(outputs, input, grid, gridstate, pointstate, rigidbodies, t, logindex(logger))
 
     try
         while !isfinised(logger, t)
             dt = phase.CFL * MarbleBot.safe_minimum(pointstate) do pt
                 MarbleBot.timestep(matmodels[pt.matindex], pt, dx)
             end
-            MarbleBot.advancestep!(grid, pointstate, rigidbodies, cache, dt, input, phase)
+            MarbleBot.advancestep!(grid, gridstate, pointstate, rigidbodies, space, dt, input, phase)
 
             if input.Output.quickview
-                update!(logger, t += dt; print = MarbleBot.quickview_sparsity_pattern(cache.spat))
+                update!(logger, t += dt; print = MarbleBot.quickview_sparsity_pattern(space.spat))
             else
                 update!(logger, t += dt)
             end
 
             if islogpoint(logger)
                 if input.Advanced.reorder_pointstate
-                    Marble.reorder_pointstate!(pointstate, cache)
+                    Marble.reorder_pointstate!(pointstate, space)
                 end
-                writeoutput(outputs, input, grid, pointstate, rigidbodies, t, logindex(logger))
+                writeoutput(outputs, input, grid, gridstate, pointstate, rigidbodies, t, logindex(logger))
             end
         end
     catch e
-        writeoutput(outputs, input, grid, pointstate, rigidbodies, t, "error")
+        writeoutput(outputs, input, grid, gridstate, pointstate, rigidbodies, t, "error")
         rethrow()
     end
 
     if input.Output.snapshot_last
         serialize(
             joinpath(input.Output.directory, "snapshots", "snapshot_last"),
-            (; t, grid, pointstate, rigidbodies)
+            (; t, grid, gridstate, pointstate, rigidbodies)
         )
     end
 
@@ -183,6 +186,7 @@ function writeoutput(
         outputs::Dict{String, Any},
         input::Input,
         grid::Grid,
+        gridstate::AbstractArray,
         pointstate::AbstractVector,
         rigidbodies::Vector,
         t::Real,
@@ -201,9 +205,9 @@ function writeoutput(
                 end
                 if input.Output.paraview_grid
                     vtk_grid(vtm, grid; compress) do vtk
-                        vtk["nodal contact force"] = vec(grid.state.fc)
-                        vtk["nodal contact distance"] = vec(grid.state.d)
-                        vtk["nodal friction"] = vec(grid.state.μ[1])
+                        vtk["nodal contact force"] = vec(gridstate.fc)
+                        vtk["nodal contact distance"] = vec(gridstate.d)
+                        vtk["nodal friction"] = vec(gridstate.μ[1])
                     end
                 end
                 pvd[t] = vtm
@@ -214,7 +218,7 @@ function writeoutput(
     if input.Output.snapshots
         serialize(
             joinpath(input.Output.directory, "snapshots", "snapshot$output_index"),
-            (; t, grid, pointstate, rigidbodies)
+            (; t, grid, gridstate, pointstate, rigidbodies)
         )
     end
 
@@ -256,6 +260,7 @@ function writeoutput(
         input.Injection.main_output((;
             input,
             grid,
+            gridstate,
             pointstate,
             rigidbodies,
             t,
