@@ -1,4 +1,4 @@
-using PoingrSimulator
+using MarbleBot
 using Test
 
 using LinearAlgebra # norm
@@ -16,9 +16,9 @@ function check_results(tomlfile::String)
     testcase = joinpath(basename(dirname(tomlfile)), basename(tomlfile))
     println("\n>> ", testcase)
     @testset "$testcase" begin
-        @time PoingrSimulator.main(tomlfile)
+        @time MarbleBot.main(tomlfile)
 
-        input = PoingrSimulator.parse_inputfile(tomlfile)
+        input = MarbleBot.parse_inputfile(tomlfile)
         for phase_index in 1:length(input.Phase)
             proj_dir = input.project
             output_dir = joinpath(input.Output.directory, string(phase_index))

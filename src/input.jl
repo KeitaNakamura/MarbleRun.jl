@@ -1,18 +1,20 @@
-using Marble
-using Marble: Interpolation
-using GeometricObjects
-using TOML
-
 function parse_input(dict::AbstractDict; project = ".", default_outdir = "output.tmp")
     # check if dict has valid toml structure
     sprint(TOML.print, dict)
 
+    # project/output directory
     input = convert_input(TOMLInput(dict))
     input.project = project
     if isempty(input.Output.directory)
         input.Output.directory = default_outdir
     end
     input.Output.directory = joinpath(input.project, input.Output.directory)
+
+    # quickview
+    if input.Output.quickview
+        @info "force `showprogress=true` by `quickview=true`"
+        input.General.showprogress = true
+    end
 
     # RigidBody
     for rigidbody in input.RigidBody
@@ -67,6 +69,7 @@ Base.convert(::Type{MaybeUndef{T}}, x) where {T} = MaybeUndef{T}(x)
 convert_input(x::MaybeUndef) = x
 Base.isassigned(x::MaybeUndef) = !ismissing(x.content)
 
+# throw undef error when trying to access `input.something` and `something` is `missing`
 undefkeyerror(s) = throw(UndefKeywordError(s))
 function Base.getproperty(t::InputTable, name::Symbol)
     v = getfield(t, name)
@@ -503,42 +506,30 @@ function TOMLInput(dict::Dict{String, Any})::TOMLInput
 end
 
 # helper functions to construct `TOMLInput`
-construct_input(current::Vector{String}, value::Any) = value
-function construct_input(current::Vector{String}, values::Vector)
-    if first(values) isa Dict{String, Any}
-        map(value -> construct_input(current, value), values)
-    else
-        values
-    end
-end
-function construct_input(current::Vector{String}, dict::Dict{String, Any})
-    maybe_struct = Symbol(join(current, "_"))
+construct_input(tablenames::Vector{String}, value::Any) = value
+construct_input(tablenames::Vector{String}, values::Vector) = map(value -> construct_input(tablenames, value), values)
+function construct_input(tablenames::Vector{String}, dict::Dict{String, Any})
+    maybe_struct = Symbol(join(tablenames, "_"))
     if isdefined(@__MODULE__, maybe_struct) && isstructtype(eval(maybe_struct))
         T = eval(maybe_struct)
         try
-            T(; (Symbol(key) => construct_input([current; key], value) for (key, value) in dict)...)
+            T(; (Symbol(key) => construct_input([tablenames; key], value) for (key, value) in dict)...)
         catch e
-            e isa UndefKeywordError && error(join(current, "."), ": ", e)
+            e isa UndefKeywordError && error(join(tablenames, "."), ": ", e)
             rethrow(e)
         end
-    elseif length(dict) == 1 # the case for `model.DruckerPrager`
+    elseif length(dict) == 1 # e.g., the case for `model.DruckerPrager`
         key, value = only(dict)
-        construct_input([current; key], value)
+        construct_input([tablenames; key], value)
     else
-        error(join(current, "."), " is not defined.")
+        error(join(tablenames, "."), " is not defined.")
     end
 end
 
-function Base.show(io::IO, input::TOMLInputTable)
-    println(io, typeof(input).name.name, ":")
-    len = maximum(length ∘ string, propertynames(input))
-    list = map(propertynames(input)) do name
-        type = replace(string(fieldtype(typeof(input), name)), "PoingrSimulator." => "", "Marble." => "")
-        string(" ", rpad(name, len), " :: ", type)
-    end
-    print(io, join(list, '\n'))
-end
 
+#########
+# Input #
+#########
 
 mutable struct Input{General, Phase, BoundaryCondition, Output, SoilLayer <: Vector, Material <: Vector, RigidBody <: Vector, Advanced, Injection} <: InputTable
     project           :: String
