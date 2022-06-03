@@ -2,12 +2,19 @@ function parse_input(dict::AbstractDict; project = ".", default_outdir = "output
     # check if dict has valid toml structure
     sprint(TOML.print, dict)
 
+    # project/output directory
     input = convert_input(TOMLInput(dict))
     input.project = project
     if isempty(input.Output.directory)
         input.Output.directory = default_outdir
     end
     input.Output.directory = joinpath(input.project, input.Output.directory)
+
+    # quickview
+    if input.Output.quickview
+        @info "force `showprogress=true` by `quickview=true`"
+        input.General.showprogress = true
+    end
 
     # RigidBody
     for rigidbody in input.RigidBody
