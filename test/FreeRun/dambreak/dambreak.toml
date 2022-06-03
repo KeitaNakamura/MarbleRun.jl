@@ -1,5 +1,7 @@
 # dambreak
 
+version = "0.15"
+
 [General]
 type = "FreeRun"
 coordinate_system = "planestrain"

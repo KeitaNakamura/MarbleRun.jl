@@ -127,6 +127,20 @@ function check_history(expected, src)
     end
 end
 
+@testset "Utilities" begin
+    @testset "replace_version" begin
+        # replace_version
+        str = """
+        # version = "0.15"
+        version = "0.15" # should be replaced only this line
+        """
+        @test MarbleBot.replace_version(str, v"0.15.2") == """
+        # version = "0.15"
+        version = "0.15.2" # <"0.15" is replaced by MarbleBot>
+        """
+    end
+end
+
 @testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun",)
     # clean up  first
     for (root, dirs, files) in collect(walkdir(module_name))

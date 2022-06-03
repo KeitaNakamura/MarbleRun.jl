@@ -1,5 +1,7 @@
 # strip footing (Drucker-Prager)
 
+version = "0.15"
+
 [General]
 type = "PenetrateIntoGround"
 coordinate_system = "planestrain" # planestrain or axisymmetric

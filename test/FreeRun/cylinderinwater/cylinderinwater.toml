@@ -1,6 +1,8 @@
 # cylinder falling in water
 # use <value> for https://doi.org/10.1016/j.ijnonlinmec.2011.10.007
 
+version = "0.15"
+
 [General]
 type = "FreeRun"
 coordinate_system = "planestrain"

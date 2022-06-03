@@ -2,8 +2,13 @@ function parse_input(dict::AbstractDict; project = ".", default_outdir = "output
     # check if dict has valid toml structure
     sprint(TOML.print, dict)
 
-    # project/output directory
+    # read input
     input = convert_input(TOMLInput(dict))
+
+    # check version
+    check_input_version(VersionNumber(input.version))
+
+    # project/output directory
     input.project = project
     if isempty(input.Output.directory)
         input.Output.directory = default_outdir
@@ -489,6 +494,7 @@ end
 #############
 
 Base.@kwdef mutable struct TOMLInput <: TOMLInputTable
+    version           :: String
     project           :: String                      = "."
     General           :: TOMLInput_General
     Phase             :: Vector{TOMLInput_Phase}
@@ -532,6 +538,7 @@ end
 #########
 
 mutable struct Input{General, Phase, BoundaryCondition, Output, SoilLayer <: Vector, Material <: Vector, RigidBody <: Vector, Advanced, Injection} <: InputTable
+    version           :: String
     project           :: String
     General           :: General
     Phase             :: Phase
