@@ -17,8 +17,10 @@ function parse_input(dict::AbstractDict; project = ".", default_outdir = "output
 
     # quickview
     if input.Output.quickview
-        @info "force `showprogress=true` by `quickview=true`"
-        input.General.showprogress = true
+        if input.General.showprogress == false
+            @info "force `showprogress=true` by `quickview=true`"
+            input.General.showprogress = true
+        end
     end
 
     # RigidBody
