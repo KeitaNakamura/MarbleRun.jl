@@ -62,7 +62,7 @@ function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, g
 end
 
 function remove_invalid_pointstate!(pointstate, input::Input)
-    α = input.Advanced.contact_threshold_scale
+    α = input.Advanced.contact_threshold_scale_for_initial_state
     !isempty(input.RigidBody) && deleteat!(
         pointstate,
         findall(eachindex(pointstate)) do p
@@ -72,7 +72,7 @@ function remove_invalid_pointstate!(pointstate, input::Input)
                 rigidbody = input_rigidbody.model
                 inverse = input_rigidbody.inverse
                 isinbody = in(xₚ, rigidbody)
-                # remove pointstate which is in rigidbody or is in contact with rigidbody
+                # remove pointstate which is inside of rigidbody or is in contact with rigidbody
                 (inverse ? !isinbody : isinbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
             end
         end,
