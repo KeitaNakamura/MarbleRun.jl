@@ -475,19 +475,21 @@ end
 ############
 
 Base.@kwdef mutable struct TOMLInput_Advanced <: TOMLInputTable
-    npoints_in_cell               :: Int     = 2
-    contact_threshold_scale       :: Float64 = 1.0
-    contact_penalty_parameter     :: Float64 = 0.0
-    reorder_pointstate            :: Bool    = false
-    dem_contact_penalty_parameter :: Float64 = 0.9
+    npoints_in_cell                           :: Int     = 2
+    contact_threshold_scale                   :: Float64 = 1.0
+    contact_threshold_scale_for_initial_state :: Float64 = contact_threshold_scale
+    contact_penalty_parameter                 :: Float64 = 0.0
+    reorder_pointstate                        :: Bool    = false
+    dem_contact_penalty_parameter             :: Float64 = 0.9
 end
 
 mutable struct Input_Advanced <: InputTable
-    npoints_in_cell               :: Int
-    contact_threshold_scale       :: Float64
-    contact_penalty_parameter     :: Float64
-    reorder_pointstate            :: Bool
-    dem_contact_penalty_parameter :: Float64
+    npoints_in_cell                           :: Int
+    contact_threshold_scale                   :: Float64
+    contact_threshold_scale_for_initial_state :: Float64
+    contact_penalty_parameter                 :: Float64
+    reorder_pointstate                        :: Bool
+    dem_contact_penalty_parameter             :: Float64
 end
 
 
