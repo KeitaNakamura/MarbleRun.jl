@@ -136,7 +136,7 @@ end
         """
         @test MarbleBot.replace_version(str, v"0.15.2") == """
         # version = "0.15"
-        version = "0.15.2" # <"0.15" is replaced by MarbleBot>
+        version = "0.15.2" # "0.15" is replaced by MarbleBot
         """
     end
 end
