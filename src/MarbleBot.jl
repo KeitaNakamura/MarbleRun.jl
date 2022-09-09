@@ -52,7 +52,7 @@ function replace_version(toml::AbstractString, version::VersionNumber)
     n = findfirst(lines) do line
         startswith(replace(line, " " => ""), "version=\"$toml_ver\"")
     end
-    lines[n] = "version = \"$version\" # <\"$toml_ver\" is replaced by MarbleBot>"
+    lines[n] = "version = \"$version\" # \"$toml_ver\" is replaced by MarbleBot"
     join(lines, '\n')
 end
 
