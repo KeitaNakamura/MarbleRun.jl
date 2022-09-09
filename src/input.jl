@@ -299,7 +299,7 @@ Base.@kwdef mutable struct TOMLInput_Material_model_DruckerPrager <: TOMLInputTa
     cohesion          :: Float64
     friction_angle    :: Float64
     dilatancy_angle   :: Float64
-    tension_cutoff    :: Float64 = 0.0
+    tension_cutoff    :: Union{Float64, Bool} = false
 end
 
 const TOMLInput_SoilLayer_model_DruckerPrager = TOMLInput_Material_model_DruckerPrager
