@@ -1,7 +1,7 @@
 module FreeRun
 
-using MarbleBot
-using MarbleBot: Input, Input_Phase
+using MarbleRun
+using MarbleRun: Input, Input_Phase
 using Marble
 using GeometricObjects
 
@@ -59,7 +59,7 @@ function initialize(input::Input)
     grid = Grid(xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
     gridstate = generate_gridstate(GridState, grid)
     pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
-        MarbleBot.initialize_pointstate!(pointstate, materials[matindex], g)
+        MarbleRun.initialize_pointstate!(pointstate, materials[matindex], g)
         @. pointstate.matindex = matindex
     end
     t = 0.0
@@ -149,13 +149,13 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
 
     try
         while !isfinised(logger, t)
-            dt = phase.CFL * MarbleBot.safe_minimum(pointstate) do pt
-                MarbleBot.timestep(matmodels[pt.matindex], pt, dx)
+            dt = phase.CFL * MarbleRun.safe_minimum(pointstate) do pt
+                MarbleRun.timestep(matmodels[pt.matindex], pt, dx)
             end
-            MarbleBot.advancestep!(grid, gridstate, pointstate, rigidbodies, space, dt, input, phase)
+            MarbleRun.advancestep!(grid, gridstate, pointstate, rigidbodies, space, dt, input, phase)
 
             if input.Output.quickview
-                update!(logger, t += dt; print = MarbleBot.quickview_sparsity_pattern(space.spat))
+                update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(space.spat))
             else
                 update!(logger, t += dt)
             end
@@ -198,7 +198,7 @@ function writeoutput(
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x; compress) do vtk
-                    MarbleBot.write_vtk_points(vtk, pointstate)
+                    MarbleRun.write_vtk_points(vtk, pointstate)
                 end
                 for rigidbody in rigidbodies
                     vtk_grid(vtm, rigidbody)

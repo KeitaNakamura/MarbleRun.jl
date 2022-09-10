@@ -1,6 +1,6 @@
 module Injection
 
-using MarbleBot.GeometricObjects
+using MarbleRun.GeometricObjects
 
 function main_output_initialize(args)
     input = args.input
