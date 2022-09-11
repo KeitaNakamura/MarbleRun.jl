@@ -29,13 +29,13 @@ function check_input_version(version::VersionNumber)
     if i === nothing
         error(
             "Input file v$version is not supported. " *
-            "Available input file versions for MarbleBot v$PACKAGE_VERSION are $(compatible_input_versions(PACKAGE_VERSION))."
+            "Available input file versions for MarbleRun v$PACKAGE_VERSION are $(compatible_input_versions(PACKAGE_VERSION))."
         )
     end
     if i != j
         error(
-            "Input file v$version is not compatible with MarbleBot v$PACKAGE_VERSION. " *
-            "Available MarbleBot versions are $(compatible_input_versions(version))."
+            "Input file v$version is not compatible with MarbleRun v$PACKAGE_VERSION. " *
+            "Available MarbleRun versions are $(compatible_input_versions(version))."
         )
     end
 end

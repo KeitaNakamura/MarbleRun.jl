@@ -1,4 +1,4 @@
-using MarbleBot
+using MarbleRun
 using Test
 
 using LinearAlgebra # norm
@@ -16,9 +16,9 @@ function check_results(tomlfile::String)
     testcase = joinpath(basename(dirname(tomlfile)), basename(tomlfile))
     println("\n>> ", testcase)
     @testset "$testcase" begin
-        @time MarbleBot.main(tomlfile)
+        @time MarbleRun.main(tomlfile)
 
-        input = MarbleBot.parse_inputfile(tomlfile)
+        input = MarbleRun.parse_inputfile(tomlfile)
         for phase_index in 1:length(input.Phase)
             proj_dir = input.project
             output_dir = joinpath(input.Output.directory, string(phase_index))
@@ -134,9 +134,9 @@ end
         # version = "0.15"
         version = "0.15" # should be replaced only this line
         """
-        @test MarbleBot.replace_version(str, v"0.15.2") == """
+        @test MarbleRun.replace_version(str, v"0.15.2") == """
         # version = "0.15"
-        version = "0.15.2" # "0.15" is replaced by MarbleBot
+        version = "0.15.2" # "0.15" is replaced by MarbleRun
         """
     end
 end
