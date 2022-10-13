@@ -3,44 +3,46 @@
 version = "0.15"
 
 [General]
-type = "FreeRun"
-coordinate_system = "planestrain"
-domain = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space = 0.01                 # (m)
-gravity = 9.81                    # (m/s2)
-interpolation = "QuadraticBSpline()"
-showprogress = false
+type              = FreeRun
+coordinate_system = PlaneStrain()
+domain            = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.01                     # (m)
+gravity           = 9.81                     # (m/s2)
+interpolation     = QuadraticBSpline()
+showprogress      = false
 
 [[Phase]]
 time_stop = 0.6
-CFL = 1.0
-restart = "sandcolumn.tmp/1/snapshots/snapshot30"
+CFL       = 1.0
+restart   = "sandcolumn.tmp/1/snapshots/snapshot30"
 
 [BoundaryCondition]
 bottom = 0.2
 
 [Output]
-time_interval = 0.01 # (sec)
-snapshots = true
-paraview = true
-paraview_grid = true
+time_interval  = 0.01 # (sec)
+snapshots      = true
+paraview       = true
+paraview_grid  = true
 copy_inputfile = true
 
 [[Material]]
-region = "(x,y) -> 0.4 < x < 0.6 && y < 0.3"
-[Material.model.DruckerPrager]
-mohr_coulomb_type = "planestrain"
-poissons_ratio = 0.3
-youngs_modulus = 1e6              # (N/m2)
-cohesion = 0.0                    # (N/m2)
-friction_angle = 38.0             # (degree)
-dilatancy_angle = 0.0             # (degree)
-tension_cutoff = 0.0
-[Material.init.K0]
-density = 1.6e3                   # (kg/m3)
-K0 = 0.5
-height_ref = 0.3
+region = (x,y) -> 0.4 < x < 0.6 && y < 0.3
+model = MaterialDruckerPrager(
+    mohr_coulomb_type = "planestrain",
+    poissons_ratio    = 0.3,
+    youngs_modulus    = 1e6,           # (N/m2)
+    cohesion          = 0.0,           # (N/m2)
+    friction_angle    = 38.0,          # (degree)
+    dilatancy_angle   = 0.0,           # (degree)
+    tension_cutoff    = 0.0,
+)
+init = InitK0(
+    density    = 1.6e3, # (kg/m3)
+    K0         = 0.5,
+    height_ref = 0.3,
+)
 
 [Advanced]
-npoints_in_cell = 2 # in each dimension
+npoints_in_cell    = 2 # in each dimension
 reorder_pointstate = false
