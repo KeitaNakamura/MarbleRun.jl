@@ -84,7 +84,7 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
 
     outdir = input.Output.directory
     outputs = Dict{String, Any}()
-    if input.Output.paraview
+    if input.Paraview.output
         mkpath(joinpath(outdir, "paraview"))
         outputs["paraview_file"] = joinpath(outdir, "paraview", "output")
         paraview_collection(vtk_save, outputs["paraview_file"])
@@ -187,22 +187,20 @@ function writeoutput(
         t::Real,
         output_index,
     )
-    if input.Output.paraview
+    if input.Paraview.output
         compress = true
         paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
                 vtk_points(vtm, pointstate.x; compress) do vtk
-                    MarbleRun.write_vtk_points(vtk, pointstate)
+                    MarbleRun.writevtk(vtk, input.Paraview.PointState, pointstate)
                 end
                 for rigidbody in rigidbodies
                     vtk_grid(vtm, rigidbody)
                 end
-                if input.Output.paraview_grid
+                if input.Paraview.GridState !== nothing
                     vtk_grid(vtm, grid; compress) do vtk
-                        vtk["nodal contact force"] = vec(gridstate.fc)
-                        vtk["nodal contact distance"] = vec(gridstate.d)
-                        vtk["nodal friction"] = vec(gridstate.μ[1])
+                        MarbleRun.writevtk(vtk, input.Paraview.GridState, gridstate)
                     end
                 end
                 pvd[t] = vtm

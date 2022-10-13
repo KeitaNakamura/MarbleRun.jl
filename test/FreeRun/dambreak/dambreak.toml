@@ -25,9 +25,14 @@ CFL       = 0.1
 [Output]
 time_interval  = 0.05 # (sec)
 snapshot_last  = true
-paraview       = true
-paraview_grid  = false
 copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+velocity  = true
+pressure  = true
+vorticity = true
 
 [[Material]]
 region = (x,y) -> x < 1.2 && y < 0.6

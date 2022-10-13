@@ -124,11 +124,40 @@ Base.@kwdef mutable struct TOML_Output
     directory      :: String  = ""
     snapshots      :: Bool    = false
     snapshot_last  :: Bool    = false
-    paraview       :: Bool    = true
-    paraview_grid  :: Bool    = false
     copy_inputfile :: Bool    = true
     history        :: Bool    = true  # only for `PenetrateIntoGround`
     quickview      :: Bool    = false
+end
+
+############
+# Paraview #
+############
+
+Base.@kwdef struct TOML_Paraview_PointState
+    velocity          :: Bool = false
+    displacement      :: Bool = false
+    mean_stress       :: Bool = false
+    pressure          :: Bool = false
+    deviatoric_stress :: Bool = false
+    volumetric_strain :: Bool = false
+    deviatoric_strain :: Bool = false
+    stress            :: Bool = false
+    strain            :: Bool = false
+    vorticity         :: Bool = false
+    density           :: Bool = false
+    material_index    :: Bool = false
+end
+
+Base.@kwdef struct TOML_Paraview_GridState
+    velocity         :: Bool = false
+    contact_force    :: Bool = false
+    contact_distance :: Bool = false
+end
+
+Base.@kwdef mutable struct TOML_Paraview
+    output     :: Bool                                    = true
+    PointState :: TOML_Paraview_PointState                = TOML_Paraview_PointState(; velocity = true)
+    GridState  :: Union{Nothing, TOML_Paraview_GridState} = nothing
 end
 
 ############
@@ -139,7 +168,7 @@ end
 abstract type Init end
 
 Base.@kwdef struct InitUniform <: Init
-    density     :: Union{Missing, Float64} = missing # missing is allowed when using NewtonianFluid
+    density     :: Union{Nothing, Float64} = nothing # nothing is allowed when using NewtonianFluid
     mean_stress :: Float64
 end
 
@@ -326,6 +355,7 @@ Base.@kwdef mutable struct TOML{dim, Mat}
     Phase             :: Vector{TOML_Phase}
     BoundaryCondition :: TOML_BC{dim}                = TOML_BC{dim}()
     Output            :: TOML_Output
+    Paraview          :: TOML_Paraview
     SoilLayer         :: Vector{TOML_SoilLayer}      = TOML_SoilLayer[]
     Material          :: Vector{Mat}                 = SoilLayer
     RigidBody         :: Vector{TOML_RigidBody{dim}} = TOML_RigidBody{dim}[]
