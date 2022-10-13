@@ -1,51 +1,46 @@
 module FreeRun
 
 using MarbleRun
-using MarbleRun: Input, Input_Phase
+using MarbleRun: TOML, TOML_Phase
 using Marble
 using GeometricObjects
 
 using Serialization
 
-function preprocess_input!(input::Input)
-    for mat in input.Material
-        if hasproperty(mat, :friction_with_rigidbodies)
-            @assert length(mat.friction_with_rigidbodies) == length(input.RigidBody)
-        end
-    end
+function preprocess_input!(input::TOML)
 end
 
-function initialize(input::Input)
+function initialize(input::TOML)
     GridState = @NamedTuple begin
-        m::Float64
-        m′::Float64
-        v::Vec{2, Float64}
-        v_n::Vec{2, Float64}
-        m_contacted::Float64
-        vᵣ::Vec{2, Float64}
-        fc::Vec{2, Float64}
-        d::Vec{2, Float64}
-        μ::Vec{2, Float64} # [μ, c]
-        poly_coef::Vec{3, Float64}
-        poly_mat::Mat{3, 3, Float64, 9}
+        m           :: Float64
+        m′          :: Float64
+        v           :: Vec{2, Float64}
+        v_n         :: Vec{2, Float64}
+        m_contacted :: Float64
+        vᵣ          :: Vec{2, Float64}
+        fc          :: Vec{2, Float64}
+        d           :: Vec{2, Float64}
+        μ           :: Vec{2, Float64} # [μ, c]
+        poly_coef   :: Vec{3, Float64}
+        poly_mat    :: Mat{3, 3, Float64, 9}
     end
     L = isa(input.General.transfer, LinearWLS) ? 3 : 2
     PointState = @NamedTuple begin
-        m::Float64
-        V::Float64
-        x::Vec{2, Float64}
-        x0::Vec{2, Float64}
-        v::Vec{2, Float64}
-        b::Vec{2, Float64}
-        fc::Vec{2, Float64}
-        σ::SymmetricSecondOrderTensor{3, Float64, 6}
-        ϵ::SymmetricSecondOrderTensor{3, Float64, 6}
-        ∇v::SecondOrderTensor{3, Float64, 9}
-        P::Float64
-        C::Mat{2, L, Float64, 2*L}
-        r::Vec{2, Float64}
-        index::Int
-        matindex::Int
+        m        :: Float64
+        V        :: Float64
+        x        :: Vec{2, Float64}
+        x0       :: Vec{2, Float64}
+        v        :: Vec{2, Float64}
+        b        :: Vec{2, Float64}
+        fc       :: Vec{2, Float64}
+        σ        :: SymmetricSecondOrderTensor{3, Float64, 6}
+        ϵ        :: SymmetricSecondOrderTensor{3, Float64, 6}
+        ∇v       :: SecondOrderTensor{3, Float64, 9}
+        P        :: Float64
+        C        :: Mat{2, L, Float64, 2*L}
+        r        :: Vec{2, Float64}
+        index    :: Int
+        matindex :: Int
     end
 
     coordinate_system = input.General.coordinate_system
@@ -72,7 +67,7 @@ function initialize(input::Input)
     t, grid, gridstate, pointstate, rigidbodies
 end
 
-function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::AbstractArray, pointstate::AbstractVector, rigidbodies)
+function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::AbstractArray, pointstate::AbstractVector, rigidbodies)
 
     # General/Output
     dx = input.General.grid_space
@@ -128,7 +123,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
         end
     end
     if isdefined(input.Injection, :main_output)
-        input.Injection.main_output_initialize((;
+        Base.invokelatest(input.Injection.main_output_initialize, (;
             input,
             t,
             grid,
@@ -184,7 +179,7 @@ end
 
 function writeoutput(
         outputs::Dict{String, Any},
-        input::Input,
+        input::TOML,
         grid::Grid,
         gridstate::AbstractArray,
         pointstate::AbstractVector,
@@ -257,7 +252,7 @@ function writeoutput(
     end
 
     if isdefined(input.Injection, :main_output)
-        input.Injection.main_output((;
+        Base.invokelatest(input.Injection.main_output, (;
             input,
             grid,
             gridstate,

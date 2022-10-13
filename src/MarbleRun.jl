@@ -6,13 +6,13 @@ using GeometricObjects
 using UnicodePlots
 using StructArrays
 
-using TOML
+using TOMLX
 using Serialization
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
 const PACKAGE_VERSION = let
-    project = TOML.parsefile(joinpath(pkgdir(@__MODULE__), "Project.toml"))
+    project = TOMLX.parsefile(joinpath(pkgdir(@__MODULE__), "Project.toml"))
     VersionNumber(project["version"])
 end
 
@@ -47,7 +47,7 @@ end
 # helpers
 commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function replace_version(toml::AbstractString, version::VersionNumber)
-    toml_ver = TOML.parse(toml)["version"]
+    toml_ver = TOMLX.parse(@__MODULE__, toml)[:version]
     lines = split(toml, '\n')
     n = findfirst(lines) do line
         startswith(replace(line, " " => ""), "version=\"$toml_ver\"")
@@ -85,7 +85,7 @@ end
 
 # from toml string
 function main_tomlstring(toml::AbstractString; injection::Module = Module(), project::AbstractString = ".", default_outdir::AbstractString = "output.tmp")
-    input = parse_input(toml; project, default_outdir)
+    input = readinput(toml; project, default_outdir)
     input.Injection = injection
     mkpath(input.Output.directory)
     if input.Output.copy_inputfile
@@ -96,7 +96,7 @@ function main_tomlstring(toml::AbstractString; injection::Module = Module(), pro
 end
 
 # main phases
-function main(input::Input, phases::Vector{Input_Phase})
+function main(input::TOML, phases::Vector{TOML_Phase})
     outdir = input.Output.directory
     t, grid, gridstate, pointstate, rigidbodies, data... = initialize(input, first(phases))
     for i in eachindex(phases)
@@ -107,24 +107,24 @@ function main(input::Input, phases::Vector{Input_Phase})
 end
 
 # main for each phase
-function main(input::Input, phase::Input_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
+function main(input::TOML, phase::TOML_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
     println("Points: ", commas(length(pointstate)))
-    @eval $input.General.type.main($input, $phase, $t, $grid, $gridstate, $pointstate, $data...)
+    input.General.type.main(input, phase, t, grid, gridstate, pointstate, data...)
 end
 
 ############################
 # initialize/reinitialize! #
 ############################
 
-function initialize(input::Input, phase::Input_Phase)
+function initialize(input::TOML, phase::TOML_Phase)
     if isempty(phase.restart)
-        @eval $input.General.type.initialize($input)
+        input.General.type.initialize(input)
     else
         deserialize(joinpath(input.project, phase.restart))
     end
 end
 
-function reinitialize!(rigidbody::GeometricObject, input::Input_RigidBody, phase_index::Int)
+function reinitialize!(rigidbody::GeometricObject, input::TOML_RigidBody, phase_index::Int)
     phase = input.Phase[phase_index]
     if phase.control
         rigidbody.m = Inf
@@ -140,14 +140,14 @@ function reinitialize!(rigidbody::GeometricObject, input::Input_RigidBody, phase
     input.control = phase.control
     input.body_force = phase.body_force
 end
-function reinitialize!(rigidbodies::Vector{<: GeometricObject}, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
+function reinitialize!(rigidbodies::Vector{<: GeometricObject}, inputs::Vector{<: TOML_RigidBody}, phase_index::Int)
     for (rigidbody, input) in zip(rigidbodies, inputs)
         reinitialize!(rigidbody, input, phase_index)
     end
 end
-function reinitialize!(rigidbody::GeometricObject, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
+function reinitialize!(rigidbody::GeometricObject, inputs::Vector{<: TOML_RigidBody}, phase_index::Int)
     reinitialize!(rigidbody, only(inputs), phase_index)
 end
-reinitialize!(rigidbodies::Vector{Any}, inputs::Vector{Any}, phase_index::Int) = @assert isempty(rigidbodies) && isempty(inputs)
+reinitialize!(rigidbodies::Vector, inputs::Vector, phase_index::Int) = @assert isempty(rigidbodies) && isempty(inputs)
 
 end # module

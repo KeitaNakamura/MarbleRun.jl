@@ -39,7 +39,7 @@ end
 # material-wise initialization.
 # After initialization, these `pointstate`s will be concatenated.
 # Then, if you have rigid bodies, the invalid points are removed.
-function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
+function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::TOML) where {PointState}
     # generate all pointstate first
     Material = input.Material
     pointstates = map(1:length(Material)) do matindex
@@ -61,7 +61,7 @@ function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, g
     pointstate
 end
 
-function remove_invalid_pointstate!(pointstate, input::Input)
+function remove_invalid_pointstate!(pointstate, input::TOML)
     α = input.Advanced.contact_threshold_scale_for_initial_state
     !isempty(input.RigidBody) && deleteat!(
         pointstate,
@@ -80,18 +80,13 @@ function remove_invalid_pointstate!(pointstate, input::Input)
     pointstate
 end
 
-function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material, g)
-    init_stress_mass!(pointstate, material, g)
+function initialize_pointstate!(pointstate::AbstractVector, material::TOML_Material, g)
+    init_stress_mass!(pointstate, material.model, material.init, g)
     @. pointstate.x0 = pointstate.x
     @. pointstate.b = Vec(0.0, -g)
 end
 
-function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material{Model, Init}, g) where {Model, Init}
-    throw(ArgumentError("$Init is not available for $Model"))
-end
-
-function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: MaterialModel, <: Input_Material_init_K0}, g)
-    init = material.init
+function init_stress_mass!(pointstate::AbstractVector, ::MaterialModel, init::InitK0, g)
     ρ0 = init.density
     for p in eachindex(pointstate)
         σ_y = -ρ0 * g * (init.height_ref - pointstate.x[p][2]) # TODO: handle 3D
@@ -103,8 +98,7 @@ function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{
     end
 end
 
-function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: MaterialModel, <: Input_Material_init_Uniform}, g)
-    init = material.init
+function init_stress_mass!(pointstate::AbstractVector, ::MaterialModel, init::InitUniform, g)
     ρ0 = init.density
     for p in eachindex(pointstate)
         pointstate.σ[p] = init.mean_stress * one(pointstate.σ[p])
@@ -112,10 +106,8 @@ function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{
     end
 end
 
-function init_stress_mass!(pointstate::AbstractVector, material::Input_Material{<: NewtonianFluid, <: Input_Material_init_Uniform}, g)
-    model = material.model
-    init = material.init
-    if isassigned(init, :density) && isassigned(init, :mean_stress) # don't use `isdefined`!!
+function init_stress_mass!(pointstate::AbstractVector, model::NewtonianFluid, init::InitUniform, g)
+    if init.density !== missing
         @warn "`density` in `Material.init.Uniform` is overwritten based on the `mean_stress` for `NewtonianFluid` model"
     end
     for p in eachindex(pointstate)
@@ -128,7 +120,7 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::Input, phase::Input_Phase) where {dim}
+function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::TOML, phase::TOML_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
@@ -158,7 +150,7 @@ function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, 
     for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
-        mask = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.frictions, α, ξ)
+        mask = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.FrictionWithMaterial, α, ξ)
         if phase.update_motion == true
             # Update rigid bodies
             b = input_rigidbody.body_force
@@ -202,7 +194,7 @@ end
 # point-to-grid transfer #
 ##########################
 
-function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::Input)
+function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::TOML)
     input.General.transfer.point_to_grid!(gridstate, pointstate, space, dt)
 end
 
@@ -253,7 +245,7 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
+function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::TOML, phase::TOML_Phase)
     input.General.transfer.grid_to_point!(pointstate, gridstate, space, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
@@ -352,7 +344,7 @@ end
 # boundary condition #
 ######################
 
-function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
+function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::TOML_BC)
     n == Vec( 1,  0) && (side = :left)
     n == Vec(-1,  0) && (side = :right)
     n == Vec( 0,  1) && (side = :bottom)

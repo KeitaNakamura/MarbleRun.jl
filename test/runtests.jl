@@ -18,7 +18,7 @@ function check_results(tomlfile::String)
     @testset "$testcase" begin
         @time MarbleRun.main(tomlfile)
 
-        input = MarbleRun.parse_inputfile(tomlfile)
+        input = MarbleRun.readinputfile(tomlfile)
         for phase_index in 1:length(input.Phase)
             proj_dir = input.project
             output_dir = joinpath(input.Output.directory, string(phase_index))
