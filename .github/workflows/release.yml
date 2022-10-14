@@ -5,7 +5,7 @@ on:
     tags: '*'
 
 env:
-  packagename: MarbleBot
+  packagename: MarbleRun
 
 jobs:
   compile:
