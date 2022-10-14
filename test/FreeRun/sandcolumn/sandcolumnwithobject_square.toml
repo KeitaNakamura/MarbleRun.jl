@@ -9,7 +9,7 @@ domain            = [[0.0, 1.0], [0.0, 1.0]]             # [[xmin, xmax], [ymin,
 grid_space        = 0.01                                 # (m) <0.001>
 gravity           = 9.81                                 # (m/s2)
 interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = TransferNormalFLIP()
+transfer          = FLIP()
 showprogress      = false
 
 [[Phase]]

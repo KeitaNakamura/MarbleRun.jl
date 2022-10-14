@@ -9,7 +9,7 @@ domain            = [[0.0, 10.0], [-15.0, 1.0]]          # [[xmin, xmax], [ymin,
 grid_space        = 0.5                                  # (m)
 gravity           = 9.81                                 # (m/s2)
 interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = TransferAffinePIC()
+transfer          = APIC()
 showprogress      = false
 
 [[Phase]]

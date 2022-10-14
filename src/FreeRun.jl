@@ -24,7 +24,7 @@ function initialize(input::TOML)
         poly_coef   :: Vec{3, Float64}
         poly_mat    :: Mat{3, 3, Float64, 9}
     end
-    L = isa(input.General.transfer, LinearWLS) ? 3 : 2
+    L = isa(input.General.interpolation, LinearWLS) ? 3 : 2
     PointState = @NamedTuple begin
         m        :: Float64
         V        :: Float64
@@ -192,7 +192,7 @@ function writeoutput(
         paraview_file = outputs["paraview_file"]
         paraview_collection(paraview_file, append = true) do pvd
             vtk_multiblock(string(paraview_file, output_index)) do vtm
-                vtk_points(vtm, pointstate.x; compress) do vtk
+                vtk_grid(vtm, pointstate.x; compress) do vtk
                     MarbleRun.writevtk(vtk, input.Paraview.PointState, pointstate)
                 end
                 for rigidbody in rigidbodies

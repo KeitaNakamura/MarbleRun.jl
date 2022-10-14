@@ -10,7 +10,7 @@ domain            = [[0.0, 5.0], [0.0, 5.0]]             # [[xmin, xmax], [ymin,
 grid_space        = 0.1                                  # (m)
 gravity           = 0.0                                  # (m/s2)
 interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = TransferTaylorPIC()
+transfer          = TPIC()
 showprogress      = false
 
 [BoundaryCondition]

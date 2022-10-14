@@ -136,7 +136,7 @@ function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, 
         exclude = broadcast(|, spatmasks...)
         update!(space, pointstate; exclude)
     end
-    update_sppattern!(gridstate, space)
+    update_sparsity_pattern!(gridstate, space)
 
     # Point-to-grid transfer
     P2G!(gridstate, pointstate, space, dt, input)
@@ -195,7 +195,7 @@ end
 ##########################
 
 function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::TOML)
-    input.General.transfer.point_to_grid!(gridstate, pointstate, space, dt)
+    point_to_grid!(input.General.transfer, gridstate, pointstate, space, dt)
 end
 
 function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
@@ -246,7 +246,7 @@ end
 ##########################
 
 function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::TOML, phase::TOML_Phase)
-    input.General.transfer.grid_to_point!(pointstate, gridstate, space, dt)
+    grid_to_point!(input.General.transfer, pointstate, gridstate, space, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
