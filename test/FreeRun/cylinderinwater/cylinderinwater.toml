@@ -24,9 +24,14 @@ bottom = inf
 [Output]
 time_interval  = 0.002 # (sec) <0.01>
 snapshots      = true
-paraview       = true
-paraview_grid  = true
 copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+velocity  = true
+pressure  = true
+vorticity = true
 
 [[Material]]
 region = (x,y) -> true

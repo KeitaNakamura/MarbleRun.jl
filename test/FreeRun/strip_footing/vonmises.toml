@@ -31,9 +31,15 @@ CFL       = 1.0
 time_interval  = 0.002 # (sec)
 history        = false
 snapshots      = false
-paraview       = true
-paraview_grid  = true
 copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+mean_stress       = true
+deviatoric_stress = true
+volumetric_strain = true
+deviatoric_strain = true
 
 [[Material]]
 region = (x, y) -> y < 5.0

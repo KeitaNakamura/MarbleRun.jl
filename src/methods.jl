@@ -107,7 +107,7 @@ function init_stress_mass!(pointstate::AbstractVector, ::MaterialModel, init::In
 end
 
 function init_stress_mass!(pointstate::AbstractVector, model::NewtonianFluid, init::InitUniform, g)
-    if init.density !== missing
+    if init.density !== nothing
         @warn "`density` in `Material.init.Uniform` is overwritten based on the `mean_stress` for `NewtonianFluid` model"
     end
     for p in eachindex(pointstate)
@@ -384,20 +384,31 @@ end
 # output #
 ##########
 
-function write_vtk_points(vtk, pointstate::AbstractVector)
+vorticity(∇v::Mat{2,2}) = ∇v[2,1] - ∇v[1,2]
+vorticity(∇v::Mat{3,3}) = Vec(∇v[3,2]-∇v[2,3], ∇v[1,3]-∇v[3,1], ∇v[2,1]-∇v[1,2])
+function writevtk(vtk, list::TOML_Paraview_PointState, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
-    vtk["displacement"] = @dot_lazy pointstate.x - pointstate.x0
-    vtk["velocity"] = pointstate.v
-    vtk["mean stress"] = @dot_lazy mean(σ)
-    vtk["pressure"] = @dot_lazy -mean(σ)
-    vtk["deviatoric stress"] = @dot_lazy sqrt(3/2 * dev(σ) ⊡ dev(σ))
-    vtk["volumetric strain"] = @dot_lazy tr(ϵ)
-    vtk["deviatoric strain"] = @dot_lazy sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ))
-    vtk["stress"] = σ
-    vtk["strain"] = ϵ
-    vtk["density"] = @dot_lazy pointstate.m / pointstate.V
-    vtk["material index"] = pointstate.matindex
+    list.displacement      && (vtk["displacement"]      = @dot_lazy pointstate.x - pointstate.x0)
+    list.velocity          && (vtk["velocity"]          = pointstate.v)
+    list.mean_stress       && (vtk["mean stress"]       = @dot_lazy mean(σ))
+    list.pressure          && (vtk["pressure"]          = @dot_lazy -mean(σ))
+    list.deviatoric_stress && (vtk["deviatoric stress"] = @dot_lazy sqrt(3/2 * dev(σ) ⊡ dev(σ)))
+    list.volumetric_strain && (vtk["volumetric strain"] = @dot_lazy tr(ϵ))
+    list.deviatoric_stress && (vtk["deviatoric strain"] = @dot_lazy sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ)))
+    list.stress            && (vtk["stress"]            = σ)
+    list.strain            && (vtk["strain"]            = ϵ)
+    list.vorticity         && (vtk["vorticity"]         = @dot_lazy vorticity(pointstate.∇v))
+    list.density           && (vtk["density"]           = @dot_lazy pointstate.m / pointstate.V)
+    list.material_index    && (vtk["material index"]    = pointstate.matindex)
+    vtk
+end
+
+function writevtk(vtk, list::TOML_Paraview_GridState, gridstate::AbstractArray)
+    list.velocity         && (vtk["velocity"]         = vec(gridstate.v))
+    list.contact_force    && (vtk["contact_force"]    = vec(gridstate.fc))
+    list.contact_distance && (vtk["contact_distance"] = vec(gridstate.d))
+    vtk
 end
 
 function quickview_sparsity_pattern(spat::AbstractMatrix{Bool}; maxwidth::Int = 50, maxheight::Int = 25)

@@ -21,9 +21,19 @@ CFL       = 0.5
 time_interval  = 0.02 # (sec)
 history        = true
 snapshots      = true
-paraview       = true
-paraview_grid  = true
 copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+mean_stress       = true
+deviatoric_stress = true
+volumetric_strain = true
+deviatoric_strain = true
+[Paraview.GridState]
+velocity         = true
+contact_force    = true
+contact_distance = true
 
 [[SoilLayer]]
 thickness      = 0.1    # (m)

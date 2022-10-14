@@ -22,9 +22,10 @@ bottom = 0.3
 [Output]
 time_interval  = 0.02 # (sec)
 snapshots      = false
-paraview       = true
-paraview_grid  = false
 copy_inputfile = true
+
+[Paraview]
+output = true
 
 [[Material]]
 region = (x,y) -> 0.0 < x < 0.15 && y < 0.3
