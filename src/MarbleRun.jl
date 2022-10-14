@@ -11,12 +11,10 @@ using Serialization
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
-const PACKAGE_VERSION = let
+const PKG_VERSION = let
     project = TOMLX.parsefile(joinpath(pkgdir(@__MODULE__), "Project.toml"))
     VersionNumber(project["version"])
 end
-
-include("compat.jl")
 
 include("input.jl")
 include("methods.jl")
@@ -47,12 +45,12 @@ end
 # helpers
 commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function replace_version(toml::AbstractString, version::VersionNumber)
-    toml_ver = TOMLX.parse(@__MODULE__, toml)[:version]
+    MarbleRun_version = TOMLX.parse(@__MODULE__, toml)[:MarbleRun]
     lines = split(toml, '\n')
     n = findfirst(lines) do line
-        startswith(replace(line, " " => ""), "version=\"$toml_ver\"")
+        startswith(replace(line, " " => ""), "MarbleRun=\"$MarbleRun_version\"")
     end
-    lines[n] = "version = \"$version\" # \"$toml_ver\" is replaced by MarbleRun"
+    lines[n] = "MarbleRun = \"$version\" # \"$MarbleRun_version\" is replaced by MarbleRun"
     join(lines, '\n')
 end
 
@@ -89,7 +87,7 @@ function main_tomlstring(toml::AbstractString; injection::Module = Module(), pro
     input.Injection = injection
     mkpath(input.Output.directory)
     if input.Output.copy_inputfile
-        toml = replace_version(toml, PACKAGE_VERSION)
+        toml = replace_version(toml, PKG_VERSION)
         write(joinpath(input.Output.directory, "input.toml"), toml)
     end
     main(input, input.Phase)

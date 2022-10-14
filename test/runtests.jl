@@ -131,12 +131,12 @@ end
     @testset "replace_version" begin
         # replace_version
         str = """
-        # version = "0.15"
-        version = "0.15" # should be replaced only this line
+        # MarbleRun = "0.15"
+        MarbleRun = "0.15" # should be replaced only this line
         """
         @test MarbleRun.replace_version(str, v"0.15.2") == """
-        # version = "0.15"
-        version = "0.15.2" # "0.15" is replaced by MarbleRun
+        # MarbleRun = "0.15"
+        MarbleRun = "0.15.2" # "0.15" is replaced by MarbleRun
         """
     end
 end
