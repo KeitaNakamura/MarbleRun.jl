@@ -14,7 +14,7 @@ showprogress      = false
 [[Phase]]
 time_stop = 0.6
 CFL       = 1.0
-restart   = "sandcolumn.tmp/1/snapshots/snapshot30"
+restart   = "SandColumn.tmp/1/snapshots/snapshot30"
 
 [BoundaryCondition]
 bottom = 0.2
