@@ -1,6 +1,6 @@
 # dambreak
 
-MarbleRun = "0.15"
+MarbleRun = "1.0"
 
 [General]
 type              = FreeRun
