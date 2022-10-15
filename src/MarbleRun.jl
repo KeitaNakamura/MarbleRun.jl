@@ -71,7 +71,7 @@ end
 function main_tomlfile(tomlfile::AbstractString)
     @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
     project = dirname(tomlfile)
-    injection_file = joinpath(project, "injection.jl")
+    injection_file = joinpath(project, "Injection.jl")
     filename = first(splitext(basename(tomlfile)))
     main_tomlstring(
         read(tomlfile, String);
