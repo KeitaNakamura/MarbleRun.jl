@@ -1,0 +1,62 @@
+# settling disk
+# use <value> for https://doi.org/10.1016/j.ijnonlinmec.2011.10.007
+
+MarbleRun = "1.0"
+
+[General]
+type              = FreeRun
+coordinate_system = PlaneStrain()
+domain            = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.2e-3                     # (m) <0.08e-3>
+gravity           = 0.0                        # (m/s2)
+showprogress      = false
+
+[[Phase]]
+time_stop = 0.01 # (sec) <1.0>
+CFL       = 0.5
+
+[BoundaryCondition] # slip -> 0, friction -> 0 < coef < inf, sticky -> inf
+left   = inf
+right  = inf
+top    = inf
+bottom = inf
+
+[Output]
+time_interval  = 0.002 # (sec) <0.01>
+snapshots      = true
+copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+velocity  = true
+pressure  = true
+vorticity = true
+
+[[Material]]
+region = (x,y) -> true
+model = MaterialNewtonianFluid(
+    density_ref    = 1.0e3, # (kg/m3)
+    speed_of_sound = 1.0,   # (m/s)
+    viscosity      = 0.01,  # (Pa⋅s)
+)
+init = InitUniform(
+    mean_stress = -100.0, # (N/m2) <-10.0>
+)
+
+[[RigidBody]]
+density = 1.25e3 # (kg/m3)
+model = RigidCircle(
+    centroid = [0.01, 0.04],
+    radius   = 1.25e-3,      # (m)
+)
+[[RigidBody.Phase]]
+control    = false
+body_force = [0.0, -0.01204] # (ρ_cylinder - ρ_fluid) * area(cylinder) * g
+[[RigidBody.FrictionWithMaterial]]
+coefficient = inf            # no-slip boundary
+
+[Advanced]
+npoints_in_cell           = 2 # in each dimension <4>
+contact_threshold_scale   = 1.0
+contact_penalty_parameter = 0.0

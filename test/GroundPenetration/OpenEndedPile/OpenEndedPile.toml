@@ -1,0 +1,82 @@
+# open-ended pile for test
+
+MarbleRun = "1.0"
+
+[General]
+type              = GroundPenetration
+coordinate_system = Axisymmetric()           # Planestrain() or Axisymmetric()
+domain            = [[0.0, 0.5], [0.0, 1.5]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.02                     # (m)
+gravity           = 9.81                     # (m/s2)
+showprogress      = false
+
+[[Phase]]
+time_stop = 0.2 # (sec)
+CFL       = 0.5
+[[Phase]]
+time_stop = 0.3 # (sec)
+CFL       = 0.5
+
+[Output]
+time_interval  = 0.02 # (sec)
+history        = true
+snapshots      = true
+copy_inputfile = true
+
+[Paraview]
+output = true
+[Paraview.PointState]
+mean_stress       = true
+deviatoric_stress = true
+volumetric_strain = true
+deviatoric_strain = true
+[Paraview.GridState]
+velocity         = true
+contact_force    = true
+contact_distance = true
+
+[[SoilLayer]]
+thickness      = 0.1    # (m)
+density        = 1300.0 # (kg/m3)
+poissons_ratio = 0.333  # K0 is calculated from poisson's ratio
+model = MaterialDruckerPrager(
+    mohr_coulomb_type = "compression",
+    poissons_ratio    = 0.333,
+    youngs_modulus    = 1e6,   # (N/m2)
+    cohesion          = 0.0,   # (N/m2)
+    friction_angle    = 28.0,  # (degree)
+    dilatancy_angle   = 0.0,   # (degree)
+    tension_cutoff    = 0.0,
+)
+
+[[SoilLayer]]
+thickness      = 0.9    # (m)
+density        = 1500.0 # (kg/m3)
+poissons_ratio = 0.333  # K0 is calculated from poisson's ratio
+model = MaterialDruckerPrager(
+    mohr_coulomb_type = "compression",
+    poissons_ratio    = 0.333,
+    youngs_modulus    = 1e6,   # (N/m2)
+    cohesion          = 0.0,   # (N/m2)
+    friction_angle    = 32.0,  # (degree)
+    dilatancy_angle   = 0.0,   # (degree)
+    tension_cutoff    = 0.0,
+)
+
+[[RigidBody]]
+model = RigidPolygon(
+    coordinates = [[0.1, 1.0], [0.1, 0.0], [0.14, 0.0], [0.14, 1.0]]
+)
+[[RigidBody.Phase]]
+velocity = [0.0, -2.0] # (m/s)
+[[RigidBody.Phase]]
+velocity = [0.0, 0.5]  # (m/s)
+[[RigidBody.FrictionWithMaterial]]
+coefficient = [0.0, 0.0, 0.35, 0.35]
+[[RigidBody.FrictionWithMaterial]]
+coefficient = 0.41
+
+[Advanced]
+contact_threshold_scale   = 1.5
+contact_penalty_parameter = 0.0
+npoints_in_cell           = 2 # in each dimension

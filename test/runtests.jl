@@ -141,7 +141,7 @@ end
     end
 end
 
-@testset "$module_name" for module_name in ("PenetrateIntoGround", "FreeRun",)
+@testset "$module_name" for module_name in ("GroundPenetration", "FreeRun",)
     # clean up  first
     for (root, dirs, files) in collect(walkdir(module_name))
         for dir in dirs

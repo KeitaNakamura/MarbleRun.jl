@@ -1,13 +1,13 @@
 module MarbleRun
 
-using Marble
+using Reexport
+@reexport using Marble
 using MaterialModels
 using GeometricObjects
-using UnicodePlots
-using StructArrays
 
-using TOMLX
 using Serialization
+using UnicodePlots
+using TOMLX
 
 using Base: @_propagate_inbounds_meta, @_inline_meta
 
@@ -19,7 +19,7 @@ end
 include("input.jl")
 include("methods.jl")
 include("dem.jl")
-include("PenetrateIntoGround.jl")
+include("GroundPenetration.jl")
 include("FreeRun.jl")
 
 # for PackageCompiler
@@ -45,12 +45,12 @@ end
 # helpers
 commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function replace_version(toml::AbstractString, version::VersionNumber)
-    MarbleRun_version = TOMLX.parse(@__MODULE__, toml)[:MarbleRun]
+    input_version = TOMLX.parse(@__MODULE__, toml)[:MarbleRun]
     lines = split(toml, '\n')
     n = findfirst(lines) do line
-        startswith(replace(line, " " => ""), "MarbleRun=\"$MarbleRun_version\"")
+        startswith(replace(line, " " => ""), "MarbleRun=\"$input_version\"")
     end
-    lines[n] = "MarbleRun = \"$version\" # \"$MarbleRun_version\" is replaced by MarbleRun"
+    lines[n] = "MarbleRun = \"$version\" # \"$input_version\" is replaced by MarbleRun"
     join(lines, '\n')
 end
 
@@ -71,7 +71,7 @@ end
 function main_tomlfile(tomlfile::AbstractString)
     @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
     project = dirname(tomlfile)
-    injection_file = joinpath(project, "injection.jl")
+    injection_file = joinpath(project, "Injection.jl")
     filename = first(splitext(basename(tomlfile)))
     main_tomlstring(
         read(tomlfile, String);
