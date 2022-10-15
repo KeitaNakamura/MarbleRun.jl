@@ -1,11 +1,11 @@
-# short pile for test
+# open-ended pile for test
 
 MarbleRun = "0.15"
 
 [General]
-type              = PenetrateIntoGround
+type              = GroundPenetration
 coordinate_system = Axisymmetric()           # Planestrain() or Axisymmetric()
-domain            = [[0.0, 0.5], [0.0, 1.5]] # [[xmin, xmax], [ymin, ymax]] (m)
+domain            = [[0.0, 0.5], [0.0, 1.1]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.02                     # (m)
 gravity           = 9.81                     # (m/s2)
 showprogress      = false
@@ -13,9 +13,7 @@ showprogress      = false
 [[Phase]]
 time_stop = 0.2 # (sec)
 CFL       = 0.5
-[[Phase]]
-time_stop = 0.3 # (sec)
-CFL       = 0.5
+restart   = "OpenEndedPile.tmp/1/snapshots/snapshot5"
 
 [Output]
 time_interval  = 0.02 # (sec)
@@ -69,8 +67,6 @@ model = RigidPolygon(
 )
 [[RigidBody.Phase]]
 velocity = [0.0, -2.0] # (m/s)
-[[RigidBody.Phase]]
-velocity = [0.0, 0.5]  # (m/s)
 [[RigidBody.FrictionWithMaterial]]
 coefficient = [0.0, 0.0, 0.35, 0.35]
 [[RigidBody.FrictionWithMaterial]]

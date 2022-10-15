@@ -1,8 +1,7 @@
-module PenetrateIntoGround
+module GroundPenetration
 
 using MarbleRun
 using MarbleRun: TOML, TOML_Phase
-using Marble
 using GeometricObjects
 
 using Serialization

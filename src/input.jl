@@ -8,7 +8,7 @@ function readinput(dict::AbstractDict; project = ".", default_outdir = "output.t
     # read input
     if dict[:General][:type] == FreeRun
         input = TOMLX.parse(TOML{2, TOML_Material}, dict)
-    elseif dict[:General][:type] == PenetrateIntoGround
+    elseif dict[:General][:type] == GroundPenetration
         input = TOMLX.parse(TOML{2, TOML_SoilLayer}, dict)
     else
         error()
@@ -131,7 +131,7 @@ Base.@kwdef mutable struct TOML_Output
     snapshots      :: Bool    = false
     snapshot_last  :: Bool    = false
     copy_inputfile :: Bool    = true
-    history        :: Bool    = true  # only for `PenetrateIntoGround`
+    history        :: Bool    = true  # only for `GroundPenetration`
     quickview      :: Bool    = false
 end
 
@@ -280,7 +280,7 @@ Base.@kwdef mutable struct TOML_RigidBody{dim}
     density              :: Float64                                     = all(phase->phase.control, Phase) ? Inf : undefkeyerror(:density)
     inverse              :: Bool                                        = false
     output               :: Bool                                        = true
-    reset_position       :: Bool                                        = true # for PenetrateIntoGround
+    reset_position       :: Bool                                        = true # for GroundPenetration
     # to store current phase (TODO: better way)
     control    :: Bool                                                  = true
     body_force :: Vec{dim, Float64}                                     = zero(Vec{dim})

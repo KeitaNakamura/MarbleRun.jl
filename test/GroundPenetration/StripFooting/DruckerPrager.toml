@@ -1,22 +1,21 @@
-# strip footing (von Mises)
-# solution = cohesion * (π + 2)
+# strip footing (Drucker-Prager)
 
 MarbleRun = "0.15"
 
 [General]
-type              = PenetrateIntoGround
-coordinate_system = PlaneStrain() # PlaneStrain() or Axisymmetric()
+type              = GroundPenetration
+coordinate_system = PlaneStrain()            # PlaneStrain() or Axisymmetric()
 domain            = [[0.0, 5.0], [0.0, 5.1]] # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space        = 0.05                 # (m)
-gravity           = 0.0                     # (m/s2)
+grid_space        = 0.05                     # (m)
+gravity           = 9.81                     # (m/s2)
 showprogress      = false
 
 [[Phase]]
-time_stop = 0.04 # (sec)
+time_stop = 0.1 # (sec)
 CFL       = 1.0
 
 [Output]
-time_interval  = 0.004 # (sec)
+time_interval  = 0.01 # (sec)
 history        = false
 snapshots      = true
 copy_inputfile = true
@@ -38,9 +37,9 @@ model = MaterialDruckerPrager(
     poissons_ratio    = 0.3,
     youngs_modulus    = 200e6, # (N/m2)
     cohesion          = 10e3,  # (N/m2)
-    friction_angle    = 0.0,   # (degree)
-    dilatancy_angle   = 0.0,   # (degree)
-    tension_cutoff    = Inf,
+    friction_angle    = 30.0,  # (degree)
+    dilatancy_angle   = 30.0,  # (degree)
+    tension_cutoff    = false,
 )
 
 [[RigidBody]]
@@ -50,7 +49,7 @@ model = RigidPolygon(
 [[RigidBody.Phase]]
 velocity = [0.0, -0.1] # (m/s)
 [[RigidBody.FrictionWithMaterial]]
-coefficient = 0.0
+coefficient = 0.6
 
 [Advanced]
 contact_threshold_scale   = 1.0

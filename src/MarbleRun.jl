@@ -1,6 +1,7 @@
 module MarbleRun
 
-using Marble
+using Reexport
+@reexport using Marble
 using MaterialModels
 using GeometricObjects
 
@@ -18,7 +19,7 @@ end
 include("input.jl")
 include("methods.jl")
 include("dem.jl")
-include("PenetrateIntoGround.jl")
+include("GroundPenetration.jl")
 include("FreeRun.jl")
 
 # for PackageCompiler
