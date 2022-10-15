@@ -411,7 +411,7 @@ function writevtk(vtk, list::TOML_Paraview_GridState, gridstate::AbstractArray)
     vtk
 end
 
-function quickview_sparsity_pattern(spat::AbstractMatrix{Bool}; maxwidth::Int = 50, maxheight::Int = 25)
-    spat′ = reverse(spat', dims = 1)
-    spy(spat′; maxwidth, maxheight).graphics
+function quickview_sparsity_pattern(sppat::AbstractMatrix{Bool}; maxwidth::Int = 50, maxheight::Int = 25)
+    sppat′ = reverse(sppat', dims = 1)
+    spy(sppat′; maxwidth, maxheight).graphics
 end
