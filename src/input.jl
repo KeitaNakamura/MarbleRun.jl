@@ -15,7 +15,13 @@ function readinput(dict::AbstractDict; project = ".", default_outdir = "output.t
     end
 
     # check version
-    check_input_version(VersionNumber(input.version))
+    input_version = VersionNumber(input.MarbleRun)
+    if Base.thisminor(input_version) != Base.thisminor(PKG_VERSION)
+        @warn """
+        Current MarbleRun version $PKG_VERSION is different from version $input_version in input file.
+        Unexpected behavior may occur.
+        """
+    end
 
     # project/output directory
     input.project = project
@@ -349,7 +355,7 @@ end
 ########
 
 Base.@kwdef mutable struct TOML{dim, Mat}
-    version           :: String
+    MarbleRun         :: String
     project           :: String                      = "."
     General           :: TOML_General
     Phase             :: Vector{TOML_Phase}
