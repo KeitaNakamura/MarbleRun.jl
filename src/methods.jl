@@ -384,8 +384,9 @@ end
 # output #
 ##########
 
-vorticity(∇v::Mat{2,2}) = ∇v[2,1] - ∇v[1,2]
-vorticity(∇v::Mat{3,3}) = Vec(∇v[3,2]-∇v[2,3], ∇v[1,3]-∇v[3,1], ∇v[2,1]-∇v[1,2])
+# determine dimensions from second argument
+vorticity(∇v::Mat{3,3}, ::Vec{2}) = ∇v[2,1] - ∇v[1,2]
+vorticity(∇v::Mat{3,3}, ::Vec{3}) = Vec(∇v[3,2]-∇v[2,3], ∇v[1,3]-∇v[3,1], ∇v[2,1]-∇v[1,2])
 function writevtk(vtk, list::TOML_Paraview_PointState, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
@@ -398,7 +399,7 @@ function writevtk(vtk, list::TOML_Paraview_PointState, pointstate::AbstractVecto
     list.deviatoric_stress && (vtk["deviatoric strain"] = @dot_lazy sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ)))
     list.stress            && (vtk["stress"]            = σ)
     list.strain            && (vtk["strain"]            = ϵ)
-    list.vorticity         && (vtk["vorticity"]         = @dot_lazy vorticity(pointstate.∇v))
+    list.vorticity         && (vtk["vorticity"]         = @dot_lazy vorticity(pointstate.∇v, pointstate.x))
     list.density           && (vtk["density"]           = @dot_lazy pointstate.m / pointstate.V)
     list.material_index    && (vtk["material index"]    = pointstate.matindex)
     vtk
