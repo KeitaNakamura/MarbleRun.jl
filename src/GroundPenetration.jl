@@ -184,7 +184,7 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
             MarbleRun.advancestep!(grid, gridstate, pointstate, [rigidbody], space, dt, input, phase)
 
             if input.Output.quickview
-                update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(space.spat))
+                update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(space.sppat))
             else
                 update!(logger, t += dt)
             end

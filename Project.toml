@@ -1,7 +1,7 @@
 name = "MarbleRun"
 uuid = "a0ac6bce-1bd0-42b8-b3eb-ef979c8333b5"
 authors = ["Keita Nakamura <keita.nakamura.1109@gmail.com>"]
-version = "1.0.0"
+version = "1.0.1"
 
 [deps]
 GeometricObjects = "f167b195-1c3d-409a-8dd6-02cc02a656c6"
