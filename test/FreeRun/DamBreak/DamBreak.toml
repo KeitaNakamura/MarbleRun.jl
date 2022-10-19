@@ -37,9 +37,9 @@ vorticity = true
 [[Material]]
 region = (x,y) -> x < 1.2 && y < 0.6
 model = MaterialNewtonianFluid(
-    density_ref    = 1.0e3,   # (kg/m3)
-    speed_of_sound = 60.0,    # (m/s)
-    viscosity      = 1.01e-3, # (Pa⋅s)
+    density_ref       = 1.0e3,   # (kg/m3)
+    speed_of_sound    = 60.0,    # (m/s)
+    dynamic_viscosity = 1.01e-3, # (Pa⋅s)
 )
 init = InitUniform(
     mean_stress = 0.0 # (N/m2)

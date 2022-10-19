@@ -210,10 +210,10 @@ end
 ###################
 
 Base.@kwdef struct MaterialNewtonianFluid
-    density_ref    :: Float64
-    speed_of_sound :: Float64
-    viscosity      :: Float64
-    second_coefficient_of_viscosity :: Float64 = -2*viscosity/3
+    density_ref                     :: Float64
+    speed_of_sound                  :: Float64
+    dynamic_viscosity               :: Float64
+    second_coefficient_of_viscosity :: Float64 = -2*dynamic_viscosity/3
 end
 
 function Base.convert(::Type{MaterialModel}, model::MaterialNewtonianFluid)
@@ -223,7 +223,7 @@ function Base.convert(::Type{MaterialModel}, model::MaterialNewtonianFluid)
     )
     NewtonianFluid(
         eos;
-        μ = model.viscosity,
+        μ = model.dynamic_viscosity,
         λ = model.second_coefficient_of_viscosity,
     )
 end
