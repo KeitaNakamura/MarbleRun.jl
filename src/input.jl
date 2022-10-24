@@ -76,7 +76,7 @@ Base.@kwdef mutable struct TOML_General
     grid_space        :: Float64
     gravity           :: Float64
     interpolation     :: Interpolation = LinearWLS(QuadraticBSpline())
-    transfer          :: Transfer      = DefaultTransfer()
+    transfer          :: Transfer      = Transfer(interpolation)
     v_p_formulation   :: Bool          = false
     showprogress      :: Bool          = true
 end
