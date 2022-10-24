@@ -1,3 +1,100 @@
+####################
+# grid/point state #
+####################
+
+function merge_namedtuple_type(::Type{NamedTuple{names1, types1}}, ::Type{NamedTuple{names2, types2}}) where {names1, types1, names2, types2}
+    NamedTuple{(names1..., names2...), Tuple{types1.parameters..., types2.parameters...}}
+end
+
+function gridstate_type(input::TOML, ::Val{dim}, ::Type{T}) where {dim, T}
+    GridState = gridstate_type_base(Val(dim), T)
+    if !isempty(input.RigidBody)
+        GridState = merge_namedtuple_type(GridState, gridstate_type_contact(Val(dim), T))
+    end
+    if input.General.v_p_formulation
+        GridState = merge_namedtuple_type(GridState, gridstate_type_vpform(Val(dim), T))
+    end
+    GridState
+end
+
+function gridstate_type_base(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        m   :: T
+        v   :: Vec{dim, T}
+        v_n :: Vec{dim, T}
+    end
+end
+function gridstate_type_contact(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        m′          :: T
+        m_contacted :: T
+        vᵣ          :: Vec{dim, T}
+        fc          :: Vec{dim, T}
+        d           :: Vec{dim, T}
+        μ           :: Vec{dim, T} # [μ, c]
+    end
+end
+function gridstate_type_vpform(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        poly_coef :: Vec{3, T}
+        poly_mat  :: Mat{3, 3, T, 9}
+    end
+end
+
+function pointstate_type(input::TOML, ::Val{dim}, ::Type{T}) where {dim, T}
+    PointState = pointstate_type_base(Val(dim), T)
+    if input.General.transfer isa APIC
+        PointState = merge_namedtuple_type(PointState, pointstate_type_affine(Val(dim), T))
+    end
+    if input.General.transfer isa Marble.WLSTransfer
+        PointState = merge_namedtuple_type(PointState, pointstate_type_linwls(Val(dim), T))
+    end
+    if !isempty(input.RigidBody)
+        PointState = merge_namedtuple_type(PointState, pointstate_type_contact(Val(dim), T))
+    end
+    if input.General.v_p_formulation
+        PointState = merge_namedtuple_type(PointState, pointstate_type_vpform(Val(dim), T))
+    end
+    PointState
+end
+
+function pointstate_type_base(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        m        :: T
+        V        :: T
+        x        :: Vec{dim, T}
+        x0       :: Vec{dim, T}
+        v        :: Vec{dim, T}
+        b        :: Vec{dim, T}
+        σ        :: SymmetricSecondOrderTensor{3, T, 6}
+        ϵ        :: SymmetricSecondOrderTensor{3, T, 6}
+        ∇v       :: SecondOrderTensor{3, T, 9}
+        r        :: Vec{dim, T}
+        index    :: Int
+        matindex :: Int
+    end
+end
+function pointstate_type_affine(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        B :: Mat{dim, dim, T, dim*dim}
+    end
+end
+function pointstate_type_linwls(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        C :: Mat{dim, dim+1, T, dim*(dim+1)}
+    end
+end
+function pointstate_type_contact(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        fc :: Vec{dim, T}
+    end
+end
+function pointstate_type_vpform(::Val{dim}, ::Type{T}) where {dim, T}
+    @NamedTuple begin
+        P :: T
+    end
+end
+
 ############
 # timestep #
 ############
@@ -120,7 +217,7 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{<: Any, dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::TOML, phase::TOML_Phase) where {dim}
+function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::TOML, phase::TOML_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)

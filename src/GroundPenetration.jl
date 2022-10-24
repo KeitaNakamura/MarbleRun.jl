@@ -24,38 +24,8 @@ function preprocess_input!(input::TOML)
 end
 
 function initialize(input::TOML)
-    GridState = @NamedTuple begin
-        m           :: Float64
-        m′          :: Float64
-        v           :: Vec{2, Float64}
-        v_n         :: Vec{2, Float64}
-        m_contacted :: Float64
-        vᵣ          :: Vec{2, Float64}
-        fc          :: Vec{2, Float64}
-        d           :: Vec{2, Float64}
-        μ           :: Vec{2, Float64} # [μ, c]
-        poly_coef   :: Vec{3, Float64}
-        poly_mat    :: Mat{3, 3, Float64, 9}
-    end
-    L = isa(input.General.interpolation, LinearWLS) ? 3 : 2
-    PointState = @NamedTuple begin
-        m        :: Float64
-        V        :: Float64
-        x        :: Vec{2, Float64}
-        x0       :: Vec{2, Float64}
-        v        :: Vec{2, Float64}
-        b        :: Vec{2, Float64}
-        σ        :: SymmetricSecondOrderTensor{3, Float64, 6}
-        ϵ        :: SymmetricSecondOrderTensor{3, Float64, 6}
-        F        :: SecondOrderTensor{3, Float64, 9}
-        J        :: Float64
-        ∇v       :: SecondOrderTensor{3, Float64, 9}
-        P        :: Float64
-        C        :: Mat{2, L, Float64, 2*L}
-        r        :: Vec{2, Float64}
-        index    :: Int
-        matindex :: Int
-    end
+    GridState = MarbleRun.gridstate_type(input, Val(2), Float64)
+    PointState = MarbleRun.pointstate_type(input, Val(2), Float64)
 
     # General
     coordinate_system = input.General.coordinate_system
