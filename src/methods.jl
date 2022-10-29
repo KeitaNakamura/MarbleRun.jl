@@ -146,6 +146,7 @@ function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, g
             PointState,
             grid;
             n = input.Advanced.npoints_in_cell,
+            random = input.Advanced.random_points_generation,
         )
         initialize!(pointstate′, matindex)
         pointstate′

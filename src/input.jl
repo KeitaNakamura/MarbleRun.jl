@@ -343,6 +343,7 @@ end
 
 Base.@kwdef struct TOML_Advanced
     npoints_in_cell                           :: Int     = 2
+    random_points_generation                  :: Bool    = false
     contact_threshold_scale                   :: Float64 = 1.0
     contact_threshold_scale_for_initial_state :: Float64 = contact_threshold_scale
     contact_penalty_parameter                 :: Float64 = 0.0

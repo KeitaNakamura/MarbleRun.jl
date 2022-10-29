@@ -41,9 +41,10 @@ function initialize(input::TOML)
     # Advanced
     α = input.Advanced.contact_threshold_scale
     nptsincell = input.Advanced.npoints_in_cell
+    random_pts_gen = input.Advanced.random_points_generation
 
     grid = Grid(xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
-    pointstate = generate_pointstate((x,y) -> y < ymin + H, PointState, grid; n = nptsincell)
+    pointstate = generate_pointstate((x,y) -> y < ymin + H, PointState, grid; n=nptsincell, random=random_pts_gen)
     gridstate = generate_gridstate(GridState, grid)
     rigidbody = only(input.RigidBody).model
 
