@@ -123,7 +123,7 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
             write(io, "depth,force\n")
         end
     end
-    if input.Output.snapshots || input.Output.snapshot_last
+    if input.Output.snapshots || input.Output.snapshot_first || input.Output.snapshot_last
         mkpath(joinpath(outdir, "snapshots"))
     end
     if isdefined(input.Injection, :main_output)
@@ -146,6 +146,13 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
     logger = Logger(t_start, t_stop, t_step; input.General.showprogress)
     update!(logger, t)
     writeoutput(outputs, input, grid, gridstate, pointstate, rigidbody, rigidbody0, t, logindex(logger))
+
+    if input.Output.snapshot_first
+        serialize(
+            joinpath(input.Output.directory, "snapshots", "snapshot_first"),
+            (; t, grid, gridstate, pointstate, rigidbody, rigidbody0)
+        )
+    end
 
     try
         while !isfinised(logger, t)

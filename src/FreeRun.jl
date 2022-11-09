@@ -59,7 +59,7 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
         outputs["paraview_file"] = joinpath(outdir, "paraview", "output")
         paraview_collection(vtk_save, outputs["paraview_file"])
     end
-    if input.Output.snapshots || input.Output.snapshot_last
+    if input.Output.snapshots || input.Output.snapshot_first || input.Output.snapshot_last
         mkpath(joinpath(outdir, "snapshots"))
     end
     if any(d -> d.output, input.BoundaryCondition.Dirichlet)
@@ -111,6 +111,13 @@ function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::Abstract
     logger = Logger(t_start, t_stop, t_step; input.General.showprogress)
     update!(logger, t)
     writeoutput(outputs, input, grid, gridstate, pointstate, rigidbodies, t, logindex(logger))
+
+    if input.Output.snapshot_first
+        serialize(
+            joinpath(input.Output.directory, "snapshots", "snapshot_first"),
+            (; t, grid, gridstate, pointstate, rigidbodies)
+        )
+    end
 
     try
         while !isfinised(logger, t)

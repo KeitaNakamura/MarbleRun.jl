@@ -129,6 +129,7 @@ Base.@kwdef mutable struct TOML_Output
     time_interval  :: Float64
     directory      :: String  = ""
     snapshots      :: Bool    = false
+    snapshot_first :: Bool    = false
     snapshot_last  :: Bool    = false
     copy_inputfile :: Bool    = true
     history        :: Bool    = true  # only for `GroundPenetration`
