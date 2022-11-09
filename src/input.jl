@@ -189,7 +189,7 @@ end
 wrap(x)::Vector{Float64} = x isa Number ? [x] : x
 
 Base.@kwdef struct TOML_Material
-    region :: Function
+    region :: Union{Function, String}
     model  :: MaterialModel
     init   :: Init
 end
