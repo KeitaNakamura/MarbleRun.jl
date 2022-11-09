@@ -23,11 +23,11 @@ function check_results(tomlfile::String)
             proj_dir = input.project
             output_dir = joinpath(input.Output.directory, string(phase_index))
 
-            restart_case = !isempty(input.Phase[phase_index].restart)
-
-            # for restart
+            # for restart/readpointstate
+            restart_case = false
             testname = first(splitext(basename(tomlfile)))
-            if restart_case
+            if endswith(testname, "_restart")
+                restart_case = true
                 testname = replace(testname, "_restart" => "")
             end
             testname *= "_$phase_index"
@@ -47,7 +47,7 @@ function check_results(tomlfile::String)
             if fix_results
                 cp(joinpath(output_dir, vtk_file),
                    joinpath(proj_dir, "output", "$testname.vtu"); force = true)
-            elseif !restart_case
+            else
                 # check results
                 expected = VTKFile(joinpath(proj_dir, "output", "$testname.vtu")) # expected output
                 result = VTKFile(joinpath(output_dir, vtk_file))
