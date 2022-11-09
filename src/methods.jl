@@ -141,13 +141,17 @@ function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, g
     Material = input.Material
     pointstates = map(1:length(Material)) do matindex
         material = Material[matindex]
-        pointstate′ = generate_pointstate( # call method in `Marble`
-            material.region,
-            PointState,
-            grid;
-            n = input.Advanced.npoints_in_cell,
-            random = input.Advanced.random_points_generation,
-        )
+        if material.region isa Function
+            pointstate′ = generate_pointstate( # call method in `Marble`
+                material.region,
+                PointState,
+                grid;
+                n = input.Advanced.npoints_in_cell,
+                random = input.Advanced.random_points_generation,
+            )
+        else # material.region isa String
+            pointstate′ = generate_pointstate(PointState, deserialize(joinpath(input.project, material.region)).pointstate)
+        end
         initialize!(pointstate′, matindex)
         pointstate′
     end

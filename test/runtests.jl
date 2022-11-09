@@ -29,6 +29,8 @@ function check_results(tomlfile::String)
             if endswith(testname, "_restart")
                 restart_case = true
                 testname = replace(testname, "_restart" => "")
+            elseif endswith(testname, "_readpointstate")
+                testname = replace(testname, "_readpointstate" => "")
             end
             testname *= "_$phase_index"
 
