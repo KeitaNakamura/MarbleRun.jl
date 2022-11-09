@@ -70,6 +70,11 @@ function check_results(tomlfile::String)
                         count += 1
                     end
                 end
+                if input.Output.snapshot_first == true
+                    file = joinpath(output_dir, "snapshots", "snapshot_first")
+                    @test isfile(file)
+                    @test deserialize(file) isa NamedTuple
+                end
                 if input.Output.snapshot_last == true
                     file = joinpath(output_dir, "snapshots", "snapshot_last")
                     @test isfile(file)

@@ -24,6 +24,7 @@ CFL       = 0.1
 
 [Output]
 time_interval  = 0.05 # (sec)
+snapshot_first = true
 snapshot_last  = true
 copy_inputfile = true
 
