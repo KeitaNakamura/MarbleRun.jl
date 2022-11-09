@@ -86,9 +86,29 @@ function _compute_contactforce_position(
 end
 
 function compute_contactforce_position(X::GeometricObject, Y::GeometricObject, dt::Real, input)
-    vals = compute_distance_threshold_pointposition(X[], Y[])
-    vals === nothing && return nothing
-    _compute_contactforce_position(input, X, Y, dt, vals...)
+    if isempty(input.Advanced.dem_contact_for_DKT)
+        vals = compute_distance_threshold_pointposition(X[], Y[])
+        vals === nothing && return nothing
+        return _compute_contactforce_position(input, X, Y, dt, vals...)
+    else
+        return compute_contactforce_position_for_DKT(X[], Y[], input)
+    end
+end
+
+function compute_contactforce_position_for_DKT(X::Circle, Y::Circle, input)
+    k, ϵ = input.Advanced.dem_contact_for_DKT
+    Rx = radius(X)
+    Ry = radius(Y)
+    Xc = centroid(X)
+    Yc = centroid(Y)
+    d = norm(Xc - Yc)
+    @assert Rx === Ry
+    if d > 2Rx + ϵ
+        return nothing
+    else
+        fc = k * (Xc - Yc) * ((2Rx+ϵ)^2 - d^2)
+        return fc, (Xc+Yc)/2
+    end
 end
 
 # for boundaries

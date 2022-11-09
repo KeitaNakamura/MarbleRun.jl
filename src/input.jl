@@ -343,13 +343,14 @@ end
 ############
 
 Base.@kwdef struct TOML_Advanced
-    npoints_in_cell                           :: Int     = 2
-    random_points_generation                  :: Bool    = false
-    contact_threshold_scale                   :: Float64 = 1.0
-    contact_threshold_scale_for_initial_state :: Float64 = contact_threshold_scale
-    contact_penalty_parameter                 :: Float64 = 0.0
-    reorder_pointstate                        :: Bool    = false
-    dem_contact_penalty_parameter             :: Float64 = 0.9
+    npoints_in_cell                           :: Int             = 2
+    random_points_generation                  :: Bool            = false
+    contact_threshold_scale                   :: Float64         = 1.0
+    contact_threshold_scale_for_initial_state :: Float64         = contact_threshold_scale
+    contact_penalty_parameter                 :: Float64         = 0.0
+    reorder_pointstate                        :: Bool            = false
+    dem_contact_penalty_parameter             :: Float64         = 0.9
+    dem_contact_for_DKT                       :: Vector{Float64} = Float64[] # [k,ϵ] (experimental)
 end
 
 ########
