@@ -65,6 +65,8 @@ function readinputfile(tomlfile::AbstractString)
     input = readinput(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
 end
 
+undefkeyerror(s) = throw(UndefKeywordError(s))
+
 ###########
 # General #
 ###########
