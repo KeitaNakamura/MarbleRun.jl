@@ -7,9 +7,9 @@ end
 function readinput(dict::AbstractDict; project = ".", default_outdir = "output.tmp")
     # read input
     if dict[:General][:type] == FreeRun
-        input = TOMLX.parse(TOML{2, TOML_Material}, dict)
+        input = TOMLX.from_dict(TOML{2, TOML_Material}, dict)
     elseif dict[:General][:type] == GroundPenetration
-        input = TOMLX.parse(TOML{2, TOML_SoilLayer}, dict)
+        input = TOMLX.from_dict(TOML{2, TOML_SoilLayer}, dict)
     else
         error()
     end
@@ -65,7 +65,7 @@ function readinputfile(tomlfile::AbstractString)
     input = readinput(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
 end
 
-undefkeyerror(s) = throw(UndefKeywordError(s))
+undeferror(::Type{T}, name::Symbol) where {T} = throw(TOMLX.UndefFieldError(T, name))
 
 ###########
 # General #
@@ -184,7 +184,7 @@ end
 Base.@kwdef struct InitK0 <: Init
     density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? undefkeyerror(:K0) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? undeferror(InitK0, :K0) : poissons_ratio / (1 - poissons_ratio)
     height_ref     :: Float64
 end
 
@@ -204,7 +204,7 @@ Base.@kwdef struct TOML_SoilLayer
     thickness      :: Float64
     density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? undefkeyerror(:K0) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? (undeferror(TOML_SoilLayer, :K0)) : poissons_ratio / (1 - poissons_ratio)
     model          :: MaterialModel
 end
 
@@ -280,7 +280,7 @@ Base.@kwdef mutable struct TOML_RigidBody{dim}
     model                :: GeometricObject{dim, Float64}
     Phase                :: Vector{TOML_RigidBody_Phase{dim}}
     FrictionWithMaterial :: Vector{TOML_RigidBody_FrictionWithMaterial}
-    density              :: Float64                                     = all(phase->phase.control, Phase) ? Inf : undefkeyerror(:density)
+    density              :: Float64                                     = all(phase->phase.control, Phase) ? Inf : undeferror(TOML_RigidBody, :density)
     inverse              :: Bool                                        = false
     output               :: Bool                                        = true
     reset_position       :: Bool                                        = true # for GroundPenetration
