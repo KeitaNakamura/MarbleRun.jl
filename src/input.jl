@@ -95,7 +95,7 @@ end
 #####################
 
 # dirichlet
-Base.@kwdef mutable struct Input_BC_Dirichlet{dim}
+Base.@kwdef mutable struct Input_BoundaryCondition_Dirichlet{dim}
     region         :: Function
     velocity       :: Vec{dim, Float64}
     output         :: Bool = true
@@ -105,7 +105,7 @@ Base.@kwdef mutable struct Input_BC_Dirichlet{dim}
     node_indices   :: Vector{CartesianIndex{dim}} = CartesianIndex{dim}[]
 end
 
-Base.@kwdef mutable struct Input_BC{dim}
+Base.@kwdef mutable struct Input_BoundaryCondition{dim}
     top    :: Float64 = 0.0
     bottom :: Float64 = 0.0
     left   :: Float64 = 0.0
@@ -116,7 +116,7 @@ Base.@kwdef mutable struct Input_BC{dim}
         "-y" => CoulombFriction(; μ=bottom),
         "+y" => CoulombFriction(; μ=top),
     ]
-    Dirichlet :: Vector{Input_BC_Dirichlet{dim}} = []
+    Dirichlet :: Vector{Input_BoundaryCondition_Dirichlet{dim}} = []
 end
 
 ##########
@@ -360,7 +360,7 @@ Base.@kwdef mutable struct Input{dim, Mat}
     project           :: String                       = "."
     General           :: Input_General
     Phase             :: Vector{Input_Phase}
-    BoundaryCondition :: Input_BC{dim}                = Input_BC{dim}()
+    BoundaryCondition :: Input_BoundaryCondition{dim} = Input_BoundaryCondition{dim}()
     Output            :: Input_Output
     Paraview          :: Input_Paraview
     SoilLayer         :: Vector{Input_SoilLayer}      = Input_SoilLayer[]

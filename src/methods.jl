@@ -446,7 +446,7 @@ end
 # boundary condition #
 ######################
 
-function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BC)
+function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
     n == Vec( 1,  0) && (side = :left)
     n == Vec(-1,  0) && (side = :right)
     n == Vec( 0,  1) && (side = :bottom)
