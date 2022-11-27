@@ -6,7 +6,7 @@ function merge_namedtuple_type(::Type{NamedTuple{names1, types1}}, ::Type{NamedT
     NamedTuple{(names1..., names2...), Tuple{types1.parameters..., types2.parameters...}}
 end
 
-function gridstate_type(input::TOML, ::Val{dim}, ::Type{T}) where {dim, T}
+function gridstate_type(input::Input, ::Val{dim}, ::Type{T}) where {dim, T}
     GridState = gridstate_type_base(Val(dim), T)
     if !isempty(input.RigidBody)
         GridState = merge_namedtuple_type(GridState, gridstate_type_contact(Val(dim), T))
@@ -41,7 +41,7 @@ function gridstate_type_vpform(::Val{dim}, ::Type{T}) where {dim, T}
     end
 end
 
-function pointstate_type(input::TOML, ::Val{dim}, ::Type{T}) where {dim, T}
+function pointstate_type(input::Input, ::Val{dim}, ::Type{T}) where {dim, T}
     PointState = pointstate_type_base(Val(dim), T)
     if input.General.transfer isa APIC
         PointState = merge_namedtuple_type(PointState, pointstate_type_affine(Val(dim), T))
@@ -136,7 +136,7 @@ end
 # material-wise initialization.
 # After initialization, these `pointstate`s will be concatenated.
 # Then, if you have rigid bodies, the invalid points are removed.
-function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::TOML) where {PointState}
+function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
     # generate all pointstate first
     Material = input.Material
     pointstates = map(1:length(Material)) do matindex
@@ -163,7 +163,7 @@ function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, g
     pointstate
 end
 
-function remove_invalid_pointstate!(pointstate, input::TOML)
+function remove_invalid_pointstate!(pointstate, input::Input)
     α = input.Advanced.contact_threshold_scale_for_initial_state
     !isempty(input.RigidBody) && deleteat!(
         pointstate,
@@ -182,7 +182,7 @@ function remove_invalid_pointstate!(pointstate, input::TOML)
     pointstate
 end
 
-function initialize_pointstate!(pointstate::AbstractVector, material::TOML_Material, g)
+function initialize_pointstate!(pointstate::AbstractVector, material::Input_Material, g)
     init_stress_mass!(pointstate, material.model, material.init, g)
     @. pointstate.x0 = pointstate.x
     @. pointstate.b = Vec(0.0, -g)
@@ -222,7 +222,7 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::TOML, phase::TOML_Phase) where {dim}
+function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
@@ -296,7 +296,7 @@ end
 # point-to-grid transfer #
 ##########################
 
-function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::TOML)
+function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, input::Input)
     point_to_grid!(input.General.transfer, gridstate, pointstate, space, dt)
 end
 
@@ -347,7 +347,7 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::TOML, phase::TOML_Phase)
+function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
     grid_to_point!(input.General.transfer, pointstate, gridstate, space, dt)
     @inbounds Threads.@threads for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
@@ -446,7 +446,7 @@ end
 # boundary condition #
 ######################
 
-function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::TOML_BC)
+function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BC)
     n == Vec( 1,  0) && (side = :left)
     n == Vec(-1,  0) && (side = :right)
     n == Vec( 0,  1) && (side = :bottom)
@@ -489,7 +489,7 @@ end
 # determine dimensions from second argument
 vorticity(∇v::Mat{3,3}, ::Vec{2}) = ∇v[2,1] - ∇v[1,2]
 vorticity(∇v::Mat{3,3}, ::Vec{3}) = Vec(∇v[3,2]-∇v[2,3], ∇v[1,3]-∇v[3,1], ∇v[2,1]-∇v[1,2])
-function writevtk(vtk, list::TOML_Paraview_PointState, pointstate::AbstractVector)
+function writevtk(vtk, list::Input_Paraview_PointState, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
     list.displacement      && (vtk["displacement"]      = @dot_lazy pointstate.x - pointstate.x0)
@@ -507,7 +507,7 @@ function writevtk(vtk, list::TOML_Paraview_PointState, pointstate::AbstractVecto
     vtk
 end
 
-function writevtk(vtk, list::TOML_Paraview_GridState, gridstate::AbstractArray)
+function writevtk(vtk, list::Input_Paraview_GridState, gridstate::AbstractArray)
     list.velocity         && (vtk["velocity"]         = vec(gridstate.v))
     list.contact_force    && (vtk["contact_force"]    = vec(gridstate.fc))
     list.contact_distance && (vtk["contact_distance"] = vec(gridstate.d))

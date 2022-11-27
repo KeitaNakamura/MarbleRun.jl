@@ -1,15 +1,15 @@
 module FreeRun
 
 using MarbleRun
-using MarbleRun: TOML, TOML_Phase
+using MarbleRun: Input, Input_Phase
 using GeometricObjects
 
 using Serialization
 
-function preprocess_input!(input::TOML)
+function preprocess_input!(input::Input)
 end
 
-function initialize(input::TOML)
+function initialize(input::Input)
     GridState = MarbleRun.gridstate_type(input, Val(2), Float64)
     PointState = MarbleRun.pointstate_type(input, Val(2), Float64)
 
@@ -37,7 +37,7 @@ function initialize(input::TOML)
     t, grid, gridstate, pointstate, rigidbodies
 end
 
-function main(input::TOML, phase::TOML_Phase, t, grid::Grid, gridstate::AbstractArray, pointstate::AbstractVector, rigidbodies)
+function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::AbstractArray, pointstate::AbstractVector, rigidbodies)
 
     # General/Output
     dx = input.General.grid_space
@@ -156,7 +156,7 @@ end
 
 function writeoutput(
         outputs::Dict{String, Any},
-        input::TOML,
+        input::Input,
         grid::Grid,
         gridstate::AbstractArray,
         pointstate::AbstractVector,
