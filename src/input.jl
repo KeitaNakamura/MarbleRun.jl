@@ -1,13 +1,61 @@
 using TOMLX
 
+##########
+# Errors #
+##########
+
+abstract type InputError <: Exception end
+
+struct UndefKeyError <: InputError
+    type::Type
+    name::Symbol
+end
+function Base.showerror(io::IO, e::UndefKeyError)
+    print(io, "UndefKeyError: ")
+    print(io, "key \"", e.name, "\" must be given for \"", getkeyname(e.type), "\"")
+end
+
+struct UnsupportedKeyError <: InputError
+    type::Type
+    name::Symbol
+end
+function Base.showerror(io::IO, e::UnsupportedKeyError)
+    print(io, "UnsupportedKeyError: ")
+    print(io, "got unsupported key \"", e.name, "\" for \"", getkeyname(e.type), "\"")
+end
+
+function getkeyname(::Type{T}) where {T}
+    name = string(T)
+    m = match(r"{.*}", name)
+    if m !== nothing
+        name = replace(name, m.match=>"")
+    end
+    replace(name, "MarbleRun."=>"", "Input_"=>"", "_"=>".")
+end
+
+#############
+# readinput #
+#############
+
 function readinput(dict::AbstractDict; project = ".", default_outdir = "output.tmp")
     # read input
     if dict[:General][:type] == FreeRun
-        input = TOMLX.from_dict(Input{2, Input_Material}, dict)
+        InputType = Input{2, Input_Material}
     elseif dict[:General][:type] == GroundPenetration
-        input = TOMLX.from_dict(Input{2, Input_SoilLayer}, dict)
+        InputType = Input{2, Input_SoilLayer}
     else
         error()
+    end
+    input = try
+        TOMLX.from_dict(InputType, dict)
+    catch e
+        if e isa TOMLX.FieldError
+            e isa TOMLX.UndefFieldError       && throw(UndefKeyError(e.type, e.name))
+            e isa TOMLX.UnsupportedFieldError && throw(UnsupportedKeyError(e.type, e.name))
+            rethrow()
+        else
+            rethrow()
+        end
     end
 
     # check version
@@ -61,7 +109,7 @@ function readinputfile(tomlfile::AbstractString)
     input = readinput(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
 end
 
-undeferror(::Type{T}, name::Symbol) where {T} = throw(TOMLX.UndefFieldError(T, name))
+undefkeyerror(::Type{T}, name::Symbol) where {T} = throw(UndefKeyError(T, name))
 
 ###########
 # General #
@@ -180,7 +228,7 @@ end
 Base.@kwdef struct InitK0 <: Init
     density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? undeferror(InitK0, :K0) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? undefkeyerror(InitK0, :K0) : poissons_ratio / (1 - poissons_ratio)
     height_ref     :: Float64
 end
 
@@ -200,7 +248,7 @@ Base.@kwdef struct Input_SoilLayer
     thickness      :: Float64
     density        :: Float64
     poissons_ratio :: Float64 = NaN
-    K0             :: Float64 = isnan(poissons_ratio) ? (undeferror(Input_SoilLayer, :K0)) : poissons_ratio / (1 - poissons_ratio)
+    K0             :: Float64 = isnan(poissons_ratio) ? (undefkeyerror(Input_SoilLayer, :K0)) : poissons_ratio / (1 - poissons_ratio)
     model          :: MaterialModel
 end
 
@@ -276,7 +324,7 @@ Base.@kwdef mutable struct Input_RigidBody{dim}
     model                :: GeometricObject{dim, Float64}
     Phase                :: Vector{Input_RigidBody_Phase{dim}}
     FrictionWithMaterial :: Vector{Input_RigidBody_FrictionWithMaterial}
-    density              :: Float64                                     = all(phase->phase.control, Phase) ? Inf : undeferror(Input_RigidBody, :density)
+    density              :: Float64                                     = all(phase->phase.control, Phase) ? Inf : undefkeyerror(Input_RigidBody, :density)
     inverse              :: Bool                                        = false
     output               :: Bool                                        = true
     reset_position       :: Bool                                        = true # for GroundPenetration
