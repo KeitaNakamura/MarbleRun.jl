@@ -58,7 +58,7 @@ function compute_distance_threshold_pointposition(c1::Circle{dim, T}, c2::Circle
 end
 
 function _compute_contactforce_position(
-        input::TOML,
+        input::Input,
         X::GeometricObject{dim, T},
         Y::GeometricObject{dim, T},
         dt::T,

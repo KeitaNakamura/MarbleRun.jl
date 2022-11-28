@@ -17,10 +17,16 @@ function check_results(tomlfile::String)
     println("\n>> ", testcase)
     @testset "$testcase" begin
 
-        @time MarbleRun.main(tomlfile)
         testname = first(splitext(basename(tomlfile)))
-        input = MarbleRun.readinputfile(tomlfile)
+        if endswith(testname, "Error")
+            E = Base.eval(MarbleRun, Symbol(last(split(testname, "_"))))
+            @test_throws E MarbleRun.main(tomlfile)
+            return
+        else
+            @time MarbleRun.main(tomlfile)
+        end
 
+        input = MarbleRun.readinputfile(tomlfile)
         for phase_index in 1:length(input.Phase)
             proj_dir = input.project
             output_dir = joinpath(input.Output.directory, string(phase_index))

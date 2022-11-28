@@ -94,7 +94,7 @@ function main_tomlstring(toml::AbstractString; injection::Module = Module(), pro
 end
 
 # main phases
-function main(input::TOML, phases::Vector{TOML_Phase})
+function main(input::Input, phases::Vector{Input_Phase})
     outdir = input.Output.directory
     t, grid, gridstate, pointstate, rigidbodies, data... = initialize(input, first(phases))
     for i in eachindex(phases)
@@ -105,7 +105,7 @@ function main(input::TOML, phases::Vector{TOML_Phase})
 end
 
 # main for each phase
-function main(input::TOML, phase::TOML_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
+function main(input::Input, phase::Input_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
     println("Points: ", commas(length(pointstate)))
     input.General.type.main(input, phase, t, grid, gridstate, pointstate, data...)
 end
@@ -114,7 +114,7 @@ end
 # initialize/reinitialize! #
 ############################
 
-function initialize(input::TOML, phase::TOML_Phase)
+function initialize(input::Input, phase::Input_Phase)
     if isempty(phase.restart)
         input.General.type.initialize(input)
     else
@@ -122,7 +122,7 @@ function initialize(input::TOML, phase::TOML_Phase)
     end
 end
 
-function reinitialize!(rigidbody::GeometricObject, input::TOML_RigidBody, phase_index::Int)
+function reinitialize!(rigidbody::GeometricObject, input::Input_RigidBody, phase_index::Int)
     phase = input.Phase[phase_index]
     if phase.control
         rigidbody.m = Inf
@@ -138,12 +138,12 @@ function reinitialize!(rigidbody::GeometricObject, input::TOML_RigidBody, phase_
     input.control = phase.control
     input.body_force = phase.body_force
 end
-function reinitialize!(rigidbodies::Vector{<: GeometricObject}, inputs::Vector{<: TOML_RigidBody}, phase_index::Int)
+function reinitialize!(rigidbodies::Vector{<: GeometricObject}, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
     for (rigidbody, input) in zip(rigidbodies, inputs)
         reinitialize!(rigidbody, input, phase_index)
     end
 end
-function reinitialize!(rigidbody::GeometricObject, inputs::Vector{<: TOML_RigidBody}, phase_index::Int)
+function reinitialize!(rigidbody::GeometricObject, inputs::Vector{<: Input_RigidBody}, phase_index::Int)
     reinitialize!(rigidbody, only(inputs), phase_index)
 end
 reinitialize!(rigidbodies::Vector, inputs::Vector, phase_index::Int) = @assert isempty(rigidbodies) && isempty(inputs)
