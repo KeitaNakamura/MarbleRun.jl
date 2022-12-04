@@ -390,11 +390,12 @@ function preprocess_input!(input::Input, project::String, default_outdir::String
     end
 
     # project/output directory
+    correct_dir(proj, path) = ifelse(isabspath(path), path, joinpath(proj, path))
     input.project = project
     if isempty(input.Output.directory)
         input.Output.directory = default_outdir
     end
-    input.Output.directory = joinpath(input.project, input.Output.directory)
+    input.Output.directory = correct_dir(project, input.Output.directory) # correct directory for absolute path
 
     # quickview
     if input.Output.quickview
