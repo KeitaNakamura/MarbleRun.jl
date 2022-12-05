@@ -37,83 +37,23 @@ end
 # readinput #
 #############
 
-function readinput(dict::AbstractDict; project = ".", default_outdir = "output.tmp")
-    # read input
-    if dict[:General][:type] == FreeRun
-        InputType = Input{2, Input_Material}
-    elseif dict[:General][:type] == GroundPenetration
-        InputType = Input{2, Input_SoilLayer}
-    else
-        error()
-    end
-    input = try
-        TOMLX.from_dict(InputType, dict)
-    catch e
-        if e isa TOMLX.FieldError
-            e isa TOMLX.UndefFieldError       && throw(UndefKeyError(e.type, e.name))
-            e isa TOMLX.UnsupportedFieldError && throw(UnsupportedKeyError(e.type, e.name))
-            rethrow()
-        else
-            rethrow()
-        end
-    end
-
-    # check version
-    input_version = VersionNumber(input.MarbleRun)
-    if Base.thisminor(input_version) != Base.thisminor(PKG_VERSION)
-        @warn """
-        Current MarbleRun version $PKG_VERSION is different from version $input_version in input file.
-        Unexpected behavior may occur.
-        """
-    end
-
-    # project/output directory
-    input.project = project
-    if isempty(input.Output.directory)
-        input.Output.directory = default_outdir
-    end
-    input.Output.directory = joinpath(input.project, input.Output.directory)
-
-    # quickview
-    if input.Output.quickview
-        if input.General.showprogress == false
-            @info "force `showprogress=true` by `quickview=true`"
-            input.General.showprogress = true
-        end
-    end
-
-    # RigidBody
-    for rigidbody in input.RigidBody
-        @assert length(rigidbody.Phase) == length(input.Phase)
-        @assert length(input.Material) == length(rigidbody.FrictionWithMaterial)
-        model = rigidbody.model
-        for coef in rigidbody.FrictionWithMaterial
-            len = length(coef)
-            if model[] isa Polygon
-                @assert len == 1 || len == length(model)
-            else
-                @assert len == 1
-            end
-        end
-    end
-
-    input.General.type.preprocess_input!(input)
-    input
-end
 function readinput(str::AbstractString; project = ".", default_outdir = "output.tmp")
-    readinput(TOMLX.parse(@__MODULE__, str); project, default_outdir)
+    dict = TOMLX.parse(@__MODULE__, str)
+    input = from_dict(Input, dict)
+    preprocess_input!(input, project, default_outdir)
+    input
 end
 function readinputfile(tomlfile::AbstractString)
     @assert isfile(tomlfile) && endswith(tomlfile, ".toml")
     filename = first(splitext(basename(tomlfile)))
-    input = readinput(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
+    readinput(read(tomlfile, String); project = dirname(tomlfile), default_outdir = string(filename, ".tmp"))
 end
-
-undefkeyerror(::Type{T}, name::Symbol) where {T} = throw(UndefKeyError(T, name))
 
 ###########
 # General #
 ###########
+
+undefkeyerror(::Type{T}, name::Symbol) where {T} = throw(UndefKeyError(T, name))
 
 Base.@kwdef mutable struct Input_General
     type              :: Module
@@ -416,4 +356,72 @@ Base.@kwdef mutable struct Input{dim, Mat}
     RigidBody         :: Vector{Input_RigidBody{dim}} = Input_RigidBody{dim}[]
     Advanced          :: Input_Advanced               = Input_Advanced()
     Injection         :: Module                       = Module()
+end
+
+function from_dict(::Type{Input}, dict::AbstractDict)
+    if dict[:General][:type] == FreeRun
+        InputType = Input{2, Input_Material}
+    elseif dict[:General][:type] == GroundPenetration
+        InputType = Input{2, Input_SoilLayer}
+    else
+        error()
+    end
+    try
+        TOMLX.from_dict(InputType, dict)
+    catch e
+        if e isa TOMLX.FieldError
+            e isa TOMLX.UndefFieldError       && throw(UndefKeyError(e.type, e.name))
+            e isa TOMLX.UnsupportedFieldError && throw(UnsupportedKeyError(e.type, e.name))
+            rethrow()
+        else
+            rethrow()
+        end
+    end
+end
+
+function preprocess_input!(input::Input, project::String, default_outdir::String)
+    # check version
+    input_version = VersionNumber(input.MarbleRun)
+    if Base.thisminor(input_version) != Base.thisminor(PKG_VERSION)
+        @warn """
+        Current MarbleRun version $PKG_VERSION is different from version $input_version in input file.
+        Unexpected behavior may occur.
+        """
+    end
+
+    # project/output directory
+    correct_dir(proj, path) = ifelse(isabspath(path), path, joinpath(proj, path))
+    input.project = project
+    if isempty(input.Output.directory)
+        input.Output.directory = default_outdir
+    end
+    input.Output.directory = correct_dir(project, input.Output.directory) # correct directory for absolute path
+
+    # quickview
+    if input.Output.quickview
+        if input.General.showprogress == false
+            @info "force `showprogress=true` by `quickview=true`"
+            input.General.showprogress = true
+        end
+    end
+
+    # RigidBody
+    for rigidbody in input.RigidBody
+        @assert length(rigidbody.Phase) == length(input.Phase)
+        @assert length(input.Material) == length(rigidbody.FrictionWithMaterial)
+        model = rigidbody.model
+        for coef in rigidbody.FrictionWithMaterial
+            len = length(coef)
+            if model[] isa Polygon
+                @assert len == 1 || len == length(model)
+            else
+                @assert len == 1
+            end
+        end
+    end
+
+    # preprocess in submodule
+    input.General.type.preprocess_input!(input)
+
+    input
 end
