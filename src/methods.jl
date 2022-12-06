@@ -300,8 +300,10 @@ function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpa
     point_to_grid!(input.General.transfer, gridstate, pointstate, space, dt)
 end
 
-function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real)
-    mask = @. distance($Ref(rigidbody), pointstate.x, α * mean(pointstate.r)) !== nothing
+function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real) where {dim}
+    allequal(x) = all(isequal(first(x)), x)
+    unique_only(x) = (@assert(allequal(x)); first(x))
+    mask = @. distance($Ref(rigidbody), pointstate.x, α * unique_only(pointstate.r)) !== nothing
     !any(mask) && return mask
     point_to_grid!((gridstate.d, gridstate.vᵣ, gridstate.μ, gridstate.m_contacted), space, mask) do it, p, i
         @_inline_meta
@@ -311,7 +313,7 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
         xₚ = pointstate.x[p]
         vₚ = pointstate.v[p]
         m = N * mₚ
-        d₀ = α * mean(pointstate.r[p]) # threshold
+        d₀ = α * unique_only(pointstate.r[p]) # threshold
         coef = frictions[pointstate.matindex[p]]
         if length(coef) == 1
             μ = only(coef)
@@ -328,7 +330,7 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
     @dot_threads gridstate.d /= gridstate.m
     @dot_threads gridstate.vᵣ /= gridstate.m_contacted
     @dot_threads gridstate.μ /= gridstate.m_contacted
-    @dot_threads gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(prod(gridsteps(space.grid))))
+    @dot_threads gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(unique_only(gridsteps(space.grid))^(dim-1)))
     @dot_threads gridstate.v += (gridstate.fc / gridstate.m) * dt
     mask
 end
@@ -340,7 +342,7 @@ function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, �
     f_nor = (1-ξ) * 2m/dt^2 * d
     f_tan = m * (vᵣ_tan / dt)
     # calculate contact force by using stress (F/A) to handle cohesion properly
-    contacted(CoulombFriction(; μ = μ[1], c = μ[2], separation = true), (f_nor+f_tan)/A, -n) * A
+    contacted(CoulombFriction(; μ=μ[1], c=μ[2], separation=true), (f_nor+f_tan)/A, -n) * A
 end
 
 ##########################
