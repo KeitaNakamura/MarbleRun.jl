@@ -4,7 +4,7 @@
 MarbleRun = "1.0"
 
 [General]
-type              = FreeRun
+module            = FreeRun
 coordinate_system = PlaneStrain()
 domain            = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.2e-3                     # (m) <0.08e-3>

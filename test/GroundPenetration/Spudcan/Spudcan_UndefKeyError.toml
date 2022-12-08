@@ -3,7 +3,7 @@
 MarbleRun = "1.0"
 
 [General]
-type              = GroundPenetration
+module            = GroundPenetration
 coordinate_system = Axisymmetric()                       # Planestrain() or Axisymmetric()
 domain            = [[0.0, 10.0], [-15.0, 1.0]]          # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.5                                  # (m)

@@ -107,7 +107,7 @@ end
 # main for each phase
 function main(input::Input, phase::Input_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
     println("Points: ", commas(length(pointstate)))
-    input.General.type.main(input, phase, t, grid, gridstate, pointstate, data...)
+    input.General.mod.main(input, phase, t, grid, gridstate, pointstate, data...)
 end
 
 ############################
@@ -116,7 +116,7 @@ end
 
 function initialize(input::Input, phase::Input_Phase)
     if isempty(phase.restart)
-        input.General.type.initialize(input)
+        input.General.mod.initialize(input)
     else
         deserialize(joinpath(input.project, phase.restart))
     end
