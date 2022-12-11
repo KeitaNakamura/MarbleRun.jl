@@ -45,7 +45,7 @@ end
 # helpers
 commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function replace_version(toml::AbstractString, version::VersionNumber)
-    input_version = TOMLX.parse(@__MODULE__, toml)[:MarbleRun]
+    input_version = TOMLX.parse(@__MODULE__, toml)["MarbleRun"]
     lines = split(toml, '\n')
     n = findfirst(lines) do line
         startswith(replace(line, " " => ""), "MarbleRun=\"$input_version\"")

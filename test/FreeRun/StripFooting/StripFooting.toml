@@ -4,13 +4,13 @@
 MarbleRun = "1.0"
 
 [General]
-module            = FreeRun
-coordinate_system = PlaneStrain()
-domain            = [[0.0, 5.0], [0.0, 5.0]]             # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space        = 0.1                                  # (m)
-gravity           = 0.0                                  # (m/s2)
-interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = TPIC()
+module            = @jl FreeRun
+coordinate_system = @jl PlaneStrain()
+domain            = [[0.0, 5.0], [0.0, 5.0]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.1                      # (m)
+gravity           = 0.0                      # (m/s2)
+interpolation     = @jl KernelCorrection(QuadraticBSpline())
+transfer          = @jl TPIC()
 showprogress      = false
 
 [BoundaryCondition]
@@ -19,7 +19,7 @@ right  = 0.0
 bottom = inf
 top    = nan
 [[BoundaryCondition.Dirichlet]]
-region   = (x, y) -> x ≤ 0.5 && y == 5.0
+region   = @jl (x, y) -> x ≤ 0.5 && y == 5.0
 velocity = [0.0, -4.0e-3]
 output   = true
 
@@ -42,8 +42,8 @@ volumetric_strain = true
 deviatoric_strain = true
 
 [[Material]]
-region = (x, y) -> y < 5.0
-model = MaterialDruckerPrager(
+region = @jl (x, y) -> y < 5.0
+model = @jl MaterialDruckerPrager(
     mohr_coulomb_type = "planestrain",
     poissons_ratio    = 0.3,
     youngs_modulus    = 1e9,           # (N/m2)
@@ -52,7 +52,7 @@ model = MaterialDruckerPrager(
     dilatancy_angle   = 0.0,           # (degree)
     tension_cutoff    = Inf,
 )
-init = InitK0(
+init = @jl InitK0(
     density        = 1e3, # (kg/m3)
     poissons_ratio = 0.3, # K0 is calculated from poisson's ratio
     height_ref     = 5.0,

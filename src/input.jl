@@ -66,9 +66,9 @@ Base.@kwdef mutable struct Input_General
     v_p_formulation   :: Bool          = false
     showprogress      :: Bool          = true
 end
-function TOMLX.from_dict(::Type{Input_General}, dict::Dict{Symbol})
-    haskey(dict, :module) || undefkeyerror(Input_General, :module)
-    dict[:mod] = pop!(dict, :module)
+function TOMLX.from_dict(::Type{Input_General}, dict::TOMLX.TOMLDict)
+    haskey(dict, "module") || undefkeyerror(Input_General, :module)
+    dict["mod"] = pop!(dict, "module")
     TOMLX.FROM_DICT(Input_General, dict)
 end
 
@@ -364,9 +364,9 @@ Base.@kwdef mutable struct Input{dim, Mat}
 end
 
 function from_dict(::Type{Input}, dict::AbstractDict)
-    if dict[:General][:module] == FreeRun
+    if dict["General"]["module"] == FreeRun
         InputType = Input{2, Input_Material}
-    elseif dict[:General][:module] == GroundPenetration
+    elseif dict["General"]["module"] == GroundPenetration
         InputType = Input{2, Input_SoilLayer}
     else
         error()

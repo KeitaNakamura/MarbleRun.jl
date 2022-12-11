@@ -3,8 +3,8 @@
 MarbleRun = "1.0"
 
 [General]
-module            = GroundPenetration
-coordinate_system = Axisymmetric()           # Planestrain() or Axisymmetric()
+module            = @jl GroundPenetration
+coordinate_system = @jl Axisymmetric()       # Planestrain() or Axisymmetric()
 domain            = [[0.0, 0.5], [0.0, 1.5]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.02                     # (m)
 gravity           = 9.81                     # (m/s2)
@@ -39,7 +39,7 @@ contact_distance = true
 thickness      = 0.1    # (m)
 density        = 1300.0 # (kg/m3)
 poissons_ratio = 0.333  # K0 is calculated from poisson's ratio
-model = MaterialDruckerPrager(
+model = @jl MaterialDruckerPrager(
     mohr_coulomb_type = "compression",
     poissons_ratio    = 0.333,
     youngs_modulus    = 1e6,   # (N/m2)
@@ -53,7 +53,7 @@ model = MaterialDruckerPrager(
 thickness      = 0.9    # (m)
 density        = 1500.0 # (kg/m3)
 poissons_ratio = 0.333  # K0 is calculated from poisson's ratio
-model = MaterialDruckerPrager(
+model = @jl MaterialDruckerPrager(
     mohr_coulomb_type = "compression",
     poissons_ratio    = 0.333,
     youngs_modulus    = 1e6,   # (N/m2)
@@ -64,7 +64,7 @@ model = MaterialDruckerPrager(
 )
 
 [[RigidBody]]
-model = RigidPolygon(
+model = @jl RigidPolygon(
     coordinates = [[0.1, 1.0], [0.1, 0.0], [0.14, 0.0], [0.14, 1.0]]
 )
 [[RigidBody.Phase]]

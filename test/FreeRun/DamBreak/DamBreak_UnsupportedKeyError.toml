@@ -3,13 +3,13 @@
 MarbleRun = "1.0"
 
 [General]
-module            = FreeRun
-coordinate_system = PlaneStrain()
-domain            = [[0.0, 3.22], [0.0, 4.0]]            # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space        = 0.05                                 # (m) <0.014>
-gravity           = 9.81                                 # (m/s2)
-interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = APIC()
+module            = @jl FreeRun
+coordinate_system = @jl PlaneStrain()
+domain            = [[0.0, 3.22], [0.0, 4.0]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.05                      # (m) <0.014>
+gravity           = 9.81                      # (m/s2)
+interpolation     = @jl KernelCorrection(QuadraticBSpline())
+transfer          = @jl APIC()
 v_p_formulation   = true
 showprogress      = false
 
@@ -37,13 +37,13 @@ pressure  = true
 vorticity = true
 
 [[Material]]
-region = (x,y) -> x < 1.2 && y < 0.6
-model = MaterialNewtonianFluid(
+region = @jl (x,y) -> x < 1.2 && y < 0.6
+model = @jl MaterialNewtonianFluid(
     density_ref       = 1.0e3,   # (kg/m3)
     speed_of_sound    = 60.0,    # (m/s)
     dynamic_viscosity = 1.01e-3, # (Pa⋅s)
 )
-init = InitUniform(
+init = @jl InitUniform(
     mean_stress = 0.0 # (N/m2)
 )
 
