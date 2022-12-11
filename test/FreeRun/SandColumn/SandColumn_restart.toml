@@ -3,12 +3,12 @@
 MarbleRun = "1.0"
 
 [General]
-type              = FreeRun
-coordinate_system = PlaneStrain()
+module            = @jl FreeRun
+coordinate_system = @jl PlaneStrain()
 domain            = [[0.0, 1.0], [0.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.01                     # (m)
 gravity           = 9.81                     # (m/s2)
-interpolation     = QuadraticBSpline()
+interpolation     = @jl QuadraticBSpline()
 showprogress      = false
 
 [[Phase]]
@@ -28,8 +28,8 @@ copy_inputfile = true
 output = true
 
 [[Material]]
-region = (x,y) -> 0.4 < x < 0.6 && y < 0.3
-model = MaterialDruckerPrager(
+region = @jl (x,y) -> 0.4 < x < 0.6 && y < 0.3
+model = @jl MaterialDruckerPrager(
     mohr_coulomb_type = "planestrain",
     poissons_ratio    = 0.3,
     youngs_modulus    = 1e6,           # (N/m2)
@@ -38,7 +38,7 @@ model = MaterialDruckerPrager(
     dilatancy_angle   = 0.0,           # (degree)
     tension_cutoff    = 0.0,
 )
-init = InitK0(
+init = @jl InitK0(
     density    = 1.6e3, # (kg/m3)
     K0         = 0.5,
     height_ref = 0.3,

@@ -4,8 +4,8 @@
 MarbleRun = "1.0"
 
 [General]
-type              = FreeRun
-coordinate_system = PlaneStrain()
+module            = @jl FreeRun
+coordinate_system = @jl PlaneStrain()
 domain            = [[0.0, 0.02], [0.0, 0.06]] # [[xmin, xmax], [ymin, ymax]] (m)
 grid_space        = 0.2e-3                     # (m) <0.08e-3>
 gravity           = 0.0                        # (m/s2)
@@ -34,19 +34,19 @@ pressure  = true
 vorticity = true
 
 [[Material]]
-region = (x,y) -> true
-model = MaterialNewtonianFluid(
+region = @jl (x,y) -> true
+model = @jl MaterialNewtonianFluid(
     density_ref       = 1.0e3, # (kg/m3)
     speed_of_sound    = 1.0,   # (m/s)
     dynamic_viscosity = 0.01,  # (Pa⋅s)
 )
-init = InitUniform(
+init = @jl InitUniform(
     mean_stress = -100.0, # (N/m2) <-10.0>
 )
 
 [[RigidBody]]
 density = 1.25e3 # (kg/m3)
-model = RigidCircle(
+model = @jl RigidCircle(
     centroid = [0.01, 0.04],
     radius   = 1.25e-3,      # (m)
 )

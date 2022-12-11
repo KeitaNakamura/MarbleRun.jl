@@ -3,13 +3,13 @@
 MarbleRun = "1.0"
 
 [General]
-type              = GroundPenetration
-coordinate_system = Axisymmetric()                       # Planestrain() or Axisymmetric()
-domain            = [[0.0, 10.0], [-15.0, 1.0]]          # [[xmin, xmax], [ymin, ymax]] (m)
-grid_space        = 0.5                                  # (m)
-gravity           = 9.81                                 # (m/s2)
-interpolation     = KernelCorrection(QuadraticBSpline())
-transfer          = APIC()
+module            = @jl GroundPenetration
+coordinate_system = @jl Axisymmetric()          # Planestrain() or Axisymmetric()
+domain            = [[0.0, 10.0], [-15.0, 1.0]] # [[xmin, xmax], [ymin, ymax]] (m)
+grid_space        = 0.5                         # (m)
+gravity           = 9.81                        # (m/s2)
+interpolation     = @jl KernelCorrection(QuadraticBSpline())
+transfer          = @jl APIC()
 showprogress      = false
 
 [[Phase]]
@@ -35,7 +35,7 @@ deviatoric_strain = true
 thickness      = 15.0   # (m)
 density        = 0.89e3 # (kg/m3)
 poissons_ratio = 0.49   # K0 is calculated from poisson's ratio
-model = MaterialDruckerPrager(
+model = @jl MaterialDruckerPrager(
     mohr_coulomb_type = "compression",
     poissons_ratio    = 0.49,
     youngs_modulus    = 10e6, # (N/m2)
@@ -46,7 +46,7 @@ model = MaterialDruckerPrager(
 )
 
 [[RigidBody]]
-model = RigidPolygon(
+model = @jl RigidPolygon(
     coordinates = [[0.0, 0.0], [0.3375, 0.43], [1.5, 0.72], [1.5, 0.87],
                    [0.375, 1.13], [0.375, 10.0], [0.0, 10.0]]
 )

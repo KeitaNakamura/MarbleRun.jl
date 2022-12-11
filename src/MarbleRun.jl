@@ -45,7 +45,7 @@ end
 # helpers
 commas(num::Integer) = replace(string(num), r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 function replace_version(toml::AbstractString, version::VersionNumber)
-    input_version = TOMLX.parse(@__MODULE__, toml)[:MarbleRun]
+    input_version = TOMLX.parse(@__MODULE__, toml)["MarbleRun"]
     lines = split(toml, '\n')
     n = findfirst(lines) do line
         startswith(replace(line, " " => ""), "MarbleRun=\"$input_version\"")
@@ -107,7 +107,7 @@ end
 # main for each phase
 function main(input::Input, phase::Input_Phase, (t, grid, gridstate, pointstate, data...) = initialize(input, phase))
     println("Points: ", commas(length(pointstate)))
-    input.General.type.main(input, phase, t, grid, gridstate, pointstate, data...)
+    input.General.mod.main(input, phase, t, grid, gridstate, pointstate, data...)
 end
 
 ############################
@@ -116,7 +116,7 @@ end
 
 function initialize(input::Input, phase::Input_Phase)
     if isempty(phase.restart)
-        input.General.type.initialize(input)
+        input.General.mod.initialize(input)
     else
         deserialize(joinpath(input.project, phase.restart))
     end

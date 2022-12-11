@@ -56,7 +56,7 @@ end
 undefkeyerror(::Type{T}, name::Symbol) where {T} = throw(UndefKeyError(T, name))
 
 Base.@kwdef mutable struct Input_General
-    type              :: Module
+    mod               :: Module
     coordinate_system :: CoordinateSystem
     domain            :: Vector{Vector{Float64}}
     grid_space        :: Float64
@@ -65,6 +65,11 @@ Base.@kwdef mutable struct Input_General
     transfer          :: Transfer      = Transfer(interpolation)
     v_p_formulation   :: Bool          = false
     showprogress      :: Bool          = true
+end
+function TOMLX.from_dict(::Type{Input_General}, dict::TOMLX.TOMLDict)
+    haskey(dict, "module") || undefkeyerror(Input_General, :module)
+    dict["mod"] = pop!(dict, "module")
+    TOMLX.FROM_DICT(Input_General, dict)
 end
 
 #########
@@ -359,9 +364,9 @@ Base.@kwdef mutable struct Input{dim, Mat}
 end
 
 function from_dict(::Type{Input}, dict::AbstractDict)
-    if dict[:General][:type] == FreeRun
+    if dict["General"]["module"] == FreeRun
         InputType = Input{2, Input_Material}
-    elseif dict[:General][:type] == GroundPenetration
+    elseif dict["General"]["module"] == GroundPenetration
         InputType = Input{2, Input_SoilLayer}
     else
         error()
@@ -421,7 +426,7 @@ function preprocess_input!(input::Input, project::String, default_outdir::String
     end
 
     # preprocess in submodule
-    input.General.type.preprocess_input!(input)
+    input.General.mod.preprocess_input!(input)
 
     input
 end
