@@ -130,12 +130,12 @@ end
 # generate_pointstate/initialize_pointstate! #
 ##############################################
 
-# Since initializing pointstate is dependent on types of simulation,
+# Since initializing pointstate depends on types of simulation,
 # `initialize!` phase should be given as argument.
 # This `initialize!` function is called on each material to perform
 # material-wise initialization.
 # After initialization, these `pointstate`s will be concatenated.
-# Then, if you have rigid bodies, the invalid points are removed.
+# Then, if there are rigid bodies, the invalid points are removed.
 function Marble.generate_pointstate(initialize!::Function, ::Type{PointState}, grid::Grid, input::Input) where {PointState}
     # generate all pointstate first
     Material = input.Material
