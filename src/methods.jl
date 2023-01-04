@@ -1,3 +1,19 @@
+crossprod(x::Vec{2}, y::Vec{2}) = x[1]*y[2] - x[2]*y[1]
+crossprod(x::Vec{3}, y::Vec{3}) = x × y
+
+torquetype(::Val{2}) = Float64
+torquetype(::Val{3}) = Vec{3, Float64}
+
+function velocityat(obj::GeometricObject{3}, x::Vec{3})
+    r = x - centroid(geometry(obj))
+    obj.v + obj.ω × r
+end
+function velocityat(obj::GeometricObject{2}, x::Vec{2})
+    r = x - centroid(geometry(obj))
+    v3 = Vec(0,0,obj.ω) × [r;0]
+    obj.v + @Tensor v3[1:2]
+end
+
 ####################
 # grid/point state #
 ####################
@@ -31,7 +47,7 @@ function gridstate_type_contact(::Val{dim}, ::Type{T}) where {dim, T}
         vᵣ          :: Vec{dim, T}
         fc          :: Vec{dim, T}
         d           :: Vec{dim, T}
-        μ           :: Vec{dim, T} # [μ, c]
+        μ           :: Vec{2, T} # [μ, c]
     end
 end
 function gridstate_type_vpform(::Val{dim}, ::Type{T}) where {dim, T}
@@ -175,7 +191,7 @@ function remove_invalid_pointstate!(pointstate, input::Input)
                 inverse = input_rigidbody.inverse
                 isinbody = in(xₚ, rigidbody)
                 # remove pointstate which is inside of rigidbody or is in contact with rigidbody
-                (inverse ? !isinbody : isinbody) || distance(rigidbody, xₚ, α * mean(rₚ)) !== nothing
+                (inverse ? !isinbody : isinbody) || distance(geometry(rigidbody), xₚ, α * mean(rₚ)) !== nothing
             end
         end,
     )
@@ -244,9 +260,9 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
     P2G!(gridstate, pointstate, space, dt, input)
 
     # Compute contact forces between rigid bodies
-    contact_forces = fill(zero(Vec{dim}), length(rigidbodies))
-    contact_moments = fill(zero(Vec{3}), length(rigidbodies))
-    compute_contact_forces_moments!(contact_forces, contact_moments, rigidbodies, grid, dt, input)
+    contact_force = fill(zero(Vec{dim}), length(rigidbodies))
+    contact_torque = fill(zero(torquetype(Val(dim))), length(rigidbodies))
+    compute_contact_force_torque!(contact_force, contact_torque, rigidbodies, grid, dt, input)
 
     # Point-to-grid transfer for contact and update positions of rigid bodies
     for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
@@ -257,13 +273,17 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
             # Update rigid bodies
             b = input_rigidbody.body_force
             if input_rigidbody.control
-                GeometricObjects.update!(rigidbody, b, zero(Vec{3}), dt)
+                apply_force!(rigidbody, b, zero(torquetype(Val(dim))), dt)
             else
                 G2P_contact!(pointstate, gridstate, space, rigidbody, mask)
                 inds = findall(mask)
-                Fc, Mc = GeometricObjects.compute_force_moment(rigidbody, view(pointstate.fc, inds), view(pointstate.x, inds))
+                xc = centroid(geometry(rigidbody))
+                Fᵢ = view(pointstate.fc, inds)
+                xᵢ = view(pointstate.x, inds)
+                Fc = sum(Fᵢ)
+                τc = sum(crossprod(x-xc, F) for (F, x) in zip(Fᵢ, xᵢ); init = zero(torquetype(Val(dim))))
                 Fc += rigidbody.m * Vec(0,-g) + b
-                GeometricObjects.update!(rigidbody, contact_forces[i]+Fc, contact_moments[i]+Mc, dt)
+                apply_force!(rigidbody, contact_force[i]+Fc, contact_torque[i]+τc, dt)
             end
         end
     end
@@ -303,7 +323,7 @@ end
 function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real) where {dim}
     allequal(x) = all(isequal(first(x)), x)
     unique_only(x) = (@assert(allequal(x)); first(x))
-    mask = @. distance($Ref(rigidbody), pointstate.x, α * unique_only(pointstate.r)) !== nothing
+    mask = @. distance($(Ref(geometry(rigidbody))), pointstate.x, α * unique_only(pointstate.r)) !== nothing
     !any(mask) && return mask
     point_to_grid!((gridstate.d, gridstate.vᵣ, gridstate.μ, gridstate.m_contacted), space, mask) do it, p, i
         @_inline_meta
@@ -317,10 +337,10 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
         coef = frictions[pointstate.matindex[p]]
         if length(coef) == 1
             μ = only(coef)
-            dₚ = distance(rigidbody, xₚ, d₀)
+            dₚ = distance(geometry(rigidbody), xₚ, d₀)
         else
-            # friction is interpolated
-            dₚ, μ = distance(rigidbody, xₚ, d₀, coef)
+            dₚ, I = distance(geometry(rigidbody), xₚ, d₀, :return_indices)
+            μ = mean(view(coef, I))
         end
         d = d₀*normalize(dₚ) - dₚ
         vᵣ = vₚ - velocityat(rigidbody, xₚ)
@@ -457,12 +477,12 @@ function boundary_velocity(v::Vec{2}, n::Vec{2}, bc::Input_BoundaryCondition)
     v + contacted(cond, v, n)
 end
 
-##################################
-# contact forces/moments for DEM #
-##################################
+################################
+# contact force/torque for DEM #
+################################
 
-function compute_contact_forces_moments!(contact_forces::Vector, contact_moments::Vector, rigidbodies, grid::Grid, dt, input)
-    @assert length(contact_forces) == length(contact_moments) == length(rigidbodies) == length(input.RigidBody)
+function compute_contact_force_torque!(contact_force::Vector, contact_torque::Vector, rigidbodies, grid::Grid, dt, input)
+    @assert length(contact_force) == length(contact_torque) == length(rigidbodies) == length(input.RigidBody)
     @inbounds for (i, rigidbody1) in enumerate(rigidbodies)
         input.RigidBody[i].control && continue
         for rigidbody2 in rigidbodies
@@ -470,16 +490,16 @@ function compute_contact_forces_moments!(contact_forces::Vector, contact_moments
                 vals = compute_contactforce_position(rigidbody1, rigidbody2, dt, input)
                 if vals !== nothing
                     fc, x = vals
-                    contact_forces[i] += fc
-                    contact_moments[i] += (x - centroid(rigidbody1)) × fc
+                    contact_force[i] += fc
+                    contact_torque[i] += crossprod(x - centroid(geometry(rigidbody1)), fc)
                 end
             end
         end
         vals = compute_contactforce_position(rigidbody1, grid, dt, input)
         if vals !== nothing
             fc, x = vals
-            contact_forces[i] += fc
-            contact_moments[i] += (x - centroid(rigidbody1)) × fc
+            contact_force[i] += fc
+            contact_torque[i] += crossprod(x - centroid(geometry(rigidbody1)), fc)
         end
     end
 end

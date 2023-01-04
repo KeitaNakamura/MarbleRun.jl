@@ -417,8 +417,9 @@ function preprocess_input!(input::Input, project::String, default_outdir::String
         model = rigidbody.model
         for coef in rigidbody.FrictionWithMaterial
             len = length(coef)
-            if model[] isa Polygon
-                @assert len == 1 || len == length(model)
+            if geometry(model) isa Polygon
+                nsides = num_coordinates(model)
+                @assert len == 1 || len == nsides
             else
                 @assert len == 1
             end
