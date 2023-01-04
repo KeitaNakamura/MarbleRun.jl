@@ -48,12 +48,12 @@ function check_results(tomlfile::String)
                 root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
                 count = 0
                 for file in sort(files, lt = natural)
-                    check_snapshots(joinpath(root, "snapshot$count"); fix_results)
+                    check_snapshot(joinpath(root, "snapshot$count"); fix_results)
                     count += 1
                 end
             end
-            input.Output.snapshot_first == true && check_snapshots(joinpath(output_dir, "snapshots", "snapshot_first"); fix_results)
-            input.Output.snapshot_last  == true && check_snapshots(joinpath(output_dir, "snapshots", "snapshot_last"); fix_results)
+            input.Output.snapshot_first == true && check_snapshot(joinpath(output_dir, "snapshots", "snapshot_first"); fix_results)
+            input.Output.snapshot_last  == true && check_snapshot(joinpath(output_dir, "snapshots", "snapshot_last"); fix_results)
 
             # test history.csv if exists
             if isfile(joinpath(output_dir, "history.csv"))
@@ -116,7 +116,7 @@ function check_vtkpoints(output_dir::String, expected::String, ϵ::Real; fix_res
     end
 end
 
-function check_snapshots(file::String; fix_results::Bool)
+function check_snapshot(file::String; fix_results::Bool)
     if fix_results
     else
         @test isfile(file)
@@ -126,7 +126,7 @@ end
 
 function check_history(src::String, expected::String; fix_results::Bool)
     if fix_results
-        cp(expected, src; force = true)
+        cp(src, expected; force = true)
     else
         # check results
         history = CSV.File(src)
