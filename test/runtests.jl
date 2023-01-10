@@ -39,7 +39,7 @@ function check_results(tomlfile::String)
             check_vtkpoints(
                 output_dir,
                 joinpath(proj_dir, "output", "$testname_ref.vtu"),
-                0.05 * input.General.grid_space;
+                0.02 * input.General.grid_space;
                 fix_results
             )
 
@@ -134,7 +134,7 @@ function check_history(src::String, expected::String; fix_results::Bool)
         for name in propertynames(output)
             history_col = history[name]
             output_col = output[name][end-length(history_col)+1:end] # extract results for restart case
-            @test output_col ≈ history_col atol=1e-4 rtol=0.01
+            @test output_col ≈ history_col atol=1e-8 rtol=0.02
         end
     end
 end
