@@ -85,8 +85,8 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
                     "t"
                     ["x_$i" for i in 1:dim]
                     ["v_$i" for i in 1:dim]
-                    ["ω_$i" for i in 1:3]
-                    ["attitude_$i" for i in 1:3]
+                    dim==2 ? "ω" : ["ω_$i" for i in 1:3]
+                    ["attitude_$i" for i in 1:dim]
                 ]
                 write(history_file, join(header, ",") * "\n")
             end
@@ -215,7 +215,7 @@ function writeoutput(
                 open(history_file, "a") do io
                     values = [
                         t
-                        centroid(rigidbodies[i])
+                        centroid(geometry(rigidbodies[i]))
                         rigidbodies[i].v
                         rigidbodies[i].ω
                         attitude(rigidbodies[i])

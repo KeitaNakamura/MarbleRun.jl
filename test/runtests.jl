@@ -9,7 +9,29 @@ using Serialization # snapshots
 using ReadVTK
 using NaturalSort
 
-const fix_results = false
+const FIX_RESULTS = false
+
+const EXAMPLES = [
+    "GroundPenetration" => [
+        "OpenEndedPile/OpenEndedPile.toml",
+        "OpenEndedPile/OpenEndedPile_restart.toml",
+        "Spudcan/Spudcan.toml",
+        "Spudcan/Spudcan_UndefKeyError.toml",
+        "StripFooting/DruckerPrager.toml",
+        "StripFooting/VonMises.toml",
+    ],
+    "FreeRun" => [
+        "DamBreak/DamBreak.toml",
+        "DamBreak/DamBreak_UnsupportedKeyError.toml",
+        "SandColumn/SandColumn.toml",
+        "SandColumn/SandColumn_readpointstate.toml",
+        "SandColumn/SandColumn_restart.toml",
+        "SandColumn/SandColumnWithSquareObject.toml",
+        "SandColumn/SandColumnWithTriangleObject.toml",
+        "SettlingDisk/SettlingDisk.toml",
+        "StripFooting/StripFooting.toml",
+    ],
+]
 
 function check_results(tomlfile::String)
     @assert endswith(tomlfile, ".toml")
@@ -39,27 +61,26 @@ function check_results(tomlfile::String)
             check_vtkpoints(
                 output_dir,
                 joinpath(proj_dir, "output", "$testname_ref.vtu"),
-                0.05 * input.General.grid_space;
-                fix_results
+                0.01 * input.General.grid_space
             )
 
             # snapshots file
             if input.Output.snapshots == true
                 root, _, files = only(walkdir(joinpath(output_dir, "snapshots")))
                 count = 0
-                for file in sort(files, lt = natural)
-                    check_snapshots(joinpath(root, "snapshot$count"); fix_results)
+                for file in sort(files, lt=natural)
+                    check_snapshot(joinpath(root, "snapshot$count"))
                     count += 1
                 end
             end
-            input.Output.snapshot_first == true && check_snapshots(joinpath(output_dir, "snapshots", "snapshot_first"); fix_results)
-            input.Output.snapshot_last  == true && check_snapshots(joinpath(output_dir, "snapshots", "snapshot_last"); fix_results)
+            input.Output.snapshot_first == true && check_snapshot(joinpath(output_dir, "snapshots", "snapshot_first"))
+            input.Output.snapshot_last  == true && check_snapshot(joinpath(output_dir, "snapshots", "snapshot_last"))
 
             # test history.csv if exists
             if isfile(joinpath(output_dir, "history.csv"))
-                src = joinpath(output_dir, "history.csv")
+                results = joinpath(output_dir, "history.csv")
                 expected = joinpath(proj_dir, "output", "$testname_ref.csv")
-                check_history(src, expected; fix_results)
+                check_history(results, expected)
             end
 
             # dirichlet
@@ -68,9 +89,9 @@ function check_results(tomlfile::String)
                 for i in eachindex(Dirichlet)
                     dirichlet = Dirichlet[i]
                     if dirichlet.output
-                        src = joinpath(output_dir, "dirichlet", "$i", "history.csv")
+                        results = joinpath(output_dir, "dirichlet", "$i", "history.csv")
                         expected = joinpath(proj_dir, "output", "$(testname_ref)_diriclet_$i.csv")
-                        check_history(src, expected; fix_results)
+                        check_history(results, expected)
                     end
                 end
             end
@@ -81,9 +102,9 @@ function check_results(tomlfile::String)
                 for i in eachindex(RigidBody)
                     rigidbody = RigidBody[i]
                     if rigidbody.output
-                        src = joinpath(output_dir, "rigidbodies", "$i", "history.csv")
+                        results = joinpath(output_dir, "rigidbodies", "$i", "history.csv")
                         expected = joinpath(proj_dir, "output", "$(testname_ref)_rigidbody_$i.csv")
-                        check_history(src, expected; fix_results)
+                        check_history(results, expected)
                     end
                 end
             end
@@ -91,7 +112,7 @@ function check_results(tomlfile::String)
     end
 end
 
-function check_vtkpoints(output_dir::String, expected::String, ϵ::Real; fix_results::Bool)
+function check_vtkpoints(output_dir::String, expected::String, ϵ::Real)
     # extract last vtk file
     vtk_file = joinpath(
         output_dir,
@@ -101,11 +122,11 @@ function check_vtkpoints(output_dir::String, expected::String, ϵ::Real; fix_res
                 file -> endswith(file, "_1.vtu"),
                 only(walkdir(joinpath(output_dir, "paraview")))[3]
             ),
-            lt = natural
+            lt=natural,
         )[end],
     )
-    if fix_results
-        cp(vtk_file, expected; force = true)
+    if FIX_RESULTS
+        cp(vtk_file, expected; force=true)
     else
         expected_points = get_points(VTKFile(expected))
         result_points = get_points(VTKFile(vtk_file))
@@ -116,25 +137,25 @@ function check_vtkpoints(output_dir::String, expected::String, ϵ::Real; fix_res
     end
 end
 
-function check_snapshots(file::String; fix_results::Bool)
-    if fix_results
+function check_snapshot(file::String)
+    if FIX_RESULTS
     else
         @test isfile(file)
         @test deserialize(file) isa NamedTuple
     end
 end
 
-function check_history(src::String, expected::String; fix_results::Bool)
-    if fix_results
-        cp(expected, src; force = true)
+function check_history(results_csv::String, expected_csv::String)
+    if FIX_RESULTS
+        cp(results_csv, expected_csv; force=true)
     else
         # check results
-        history = CSV.File(src)
-        output = CSV.File(expected) # expected output
-        for name in propertynames(output)
-            history_col = history[name]
-            output_col = output[name][end-length(history_col)+1:end] # extract results for restart case
-            @test output_col ≈ history_col atol=1e-4 rtol=0.01
+        results = CSV.File(results_csv)
+        expected = CSV.File(expected_csv)
+        for name in propertynames(expected)
+            results_col = results[name]
+            expected_col = expected[name][end-length(results_col)+1:end] # extract results for restart case
+            @test results_col ≈ expected_col atol=1e-8 rtol=0.01
         end
     end
 end
@@ -153,19 +174,11 @@ end
     end
 end
 
-@testset "$module_name" for module_name in ("GroundPenetration", "FreeRun",)
-    # clean up  first
-    for (root, dirs, files) in collect(walkdir(module_name))
-        for dir in dirs
-            endswith(dir, ".tmp") && rm(joinpath(root, dir); recursive = true)
-        end
-    end
-    for (root, dirs, files) in walkdir(module_name)
-        for file in files
-            path = joinpath(root, file)
-            if endswith(path, ".toml") && !endswith(dirname(path), ".tmp")
-                check_results(path)
-            end
-        end
+# run examples
+@testset "$mod" for (mod, list) in EXAMPLES
+    for file in list
+        path = joinpath(mod, file)
+        rm(first(splitext(path)) * ".tmp"; force=true, recursive=true) # remove old folder
+        check_results(path)
     end
 end

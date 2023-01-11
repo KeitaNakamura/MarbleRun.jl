@@ -16,7 +16,7 @@ function main_output(args)
 
     history_file = joinpath(input.Output.directory, "history.csv")
     open(history_file, "a") do io
-        x, y = centroid(rigidbody)
+        x, y = centroid(geometry(rigidbody))
         vx, vy = rigidbody.v
         open(history_file, "a") do io
             write(io, join([t, x, y, vx, vy], ",") * "\n")

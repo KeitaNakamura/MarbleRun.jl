@@ -17,7 +17,7 @@ function main_output(args)
 
     history_file = joinpath(input.Output.directory, "history.csv")
     open(history_file, "a") do io
-        disp = abs(centroid(rigidbody)[2] - centroid(rigidbody0)[2])
+        disp = abs(centroid(geometry(rigidbody))[2] - centroid(geometry(rigidbody0))[2])
         force = -sum(gridstate.fc)[2]
         write(io, join([disp, force], ",") * "\n")
     end

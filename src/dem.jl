@@ -3,13 +3,13 @@ function _compute_distance_threshold_pointposition(p1::Polygon{dim, T}, p2::Poly
     pos = zero(Vec{dim, T})
     dist = zero(Vec{dim, T})
     count = 0
-    @inbounds for i in eachindex(p1)
-        xₚ = p1[i]
+    @inbounds for i in 1:num_coordinates(p1)
+        xₚ = coordinates(p1, i)
         xisinp = xₚ in p2
         if (!reverse && xisinp) || (reverse && !xisinp)
             d² = T(Inf)
             dₚ = zero(Vec{dim, T})
-            for j in eachindex(p2)
+            for j in 1:num_coordinates(p2)
                 line = GeometricObjects.getline(p2, j)
                 d = distance(line, xₚ, T(Inf))
                 d === nothing && continue
@@ -87,11 +87,11 @@ end
 
 function compute_contactforce_position(X::GeometricObject, Y::GeometricObject, dt::Real, input)
     if isempty(input.Advanced.dem_contact_for_DKT)
-        vals = compute_distance_threshold_pointposition(X[], Y[])
+        vals = compute_distance_threshold_pointposition(geometry(X), geometry(Y))
         vals === nothing && return nothing
         return _compute_contactforce_position(input, X, Y, dt, vals...)
     else
-        return compute_contactforce_position_for_DKT(X[], Y[], input)
+        return compute_contactforce_position_for_DKT(geometry(X), geometry(Y), input)
     end
 end
 
@@ -115,14 +115,14 @@ end
 function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Polygon}, Y::Grid{2}, dt::Real, input)
     frame = GeometricObject(Polygon(Y[1,1], Y[end,1], Y[end,end], Y[1,end]))
     frame.m = Inf
-    vals = compute_distance_threshold_pointposition(X[], frame[]; reverse1 = false, reverse2 = true)
+    vals = compute_distance_threshold_pointposition(geometry(X), geometry(frame); reverse1 = false, reverse2 = true)
     vals === nothing && return nothing
     _compute_contactforce_position(input, X, frame, dt, vals...)
 end
 function compute_contactforce_position(X::GeometricObject{<: Any, <: Any, <: Circle}, Y::Grid{2}, dt::Real, input)
     frame = GeometricObject(Polygon(Y[1,1], Y[end,1], Y[end,end], Y[1,end]))
     frame.m = Inf
-    vals = compute_distance_threshold_pointposition(X[], frame[])
+    vals = compute_distance_threshold_pointposition(geometry(X), geometry(frame))
     vals === nothing && return nothing
     _compute_contactforce_position(input, X, frame, dt, vals...)
 end

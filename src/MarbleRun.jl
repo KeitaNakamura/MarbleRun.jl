@@ -127,7 +127,7 @@ function reinitialize!(rigidbody::GeometricObject, input::Input_RigidBody, phase
     if phase.control
         rigidbody.m = Inf
     else
-        rigidbody.m = input.density * area(rigidbody) # TODO: use volume for 3D
+        rigidbody.m = input.density * area(geometry(rigidbody)) # TODO: use volume for 3D
     end
     if phase.velocity !== nothing
         rigidbody.v = phase.velocity
