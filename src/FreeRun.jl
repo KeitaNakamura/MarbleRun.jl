@@ -13,7 +13,7 @@ function initialize(input::Input)
     GridState = MarbleRun.gridstate_type(input, Val(2), Float64)
     PointState = MarbleRun.pointstate_type(input, Val(2), Float64)
 
-    coordinate_system = input.General.coordinate_system
+    coordsystem = input.General.coordinate_system
     (xmin, xmax), (ymin, ymax) = input.General.domain
     dx = input.General.grid_space
     g = input.General.gravity
@@ -21,7 +21,7 @@ function initialize(input::Input)
     materials = input.Material
     rigidbodies = map(x -> x.model, input.RigidBody)
 
-    grid = Grid(xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    grid = Grid(coordsystem, xmin:dx:xmax, ymin:dx:ymax)
     gridstate = generate_gridstate(GridState, grid)
     pointstate = generate_pointstate(PointState, grid, input) do pointstate, matindex
         MarbleRun.initialize_pointstate!(pointstate, materials[matindex], g)
