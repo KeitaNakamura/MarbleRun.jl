@@ -249,12 +249,8 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
     if isempty(rigidbodies)
         update!(space, pointstate)
     else
-        spatmasks = [trues(size(grid)) for i in 1:Threads.nthreads()]
-        Threads.@threads for rigidbody in rigidbodies
-            mask = spatmasks[Threads.threadid()]
-            broadcast!(!in(rigidbody), mask, grid)
-        end
-        filter = broadcast(&, spatmasks...)
+        masks = broadcast(body -> broadcast(!in(body), grid), rigidbodies)
+        filter = broadcast(&, masks...)
         update!(space, pointstate; filter)
     end
     update_sparsity_pattern!(gridstate, space)
