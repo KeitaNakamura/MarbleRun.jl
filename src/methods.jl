@@ -572,3 +572,9 @@ function quickview_sparsity_pattern(sppat::AbstractMatrix{Bool}; maxwidth::Int =
     sppat′ = reverse(sppat', dims = 1)
     spy(sppat′; maxwidth, maxheight).graphics
 end
+
+struct TransparentArray{T, N, A <: AbstractArray{T, N}} <: AbstractArray{T, N}
+    parent::A
+end
+Base.size(A::TransparentArray) = size(A.parent)
+Base.getindex(A::TransparentArray, i...) = (@_propagate_inbounds_meta; A.parent[i...])
