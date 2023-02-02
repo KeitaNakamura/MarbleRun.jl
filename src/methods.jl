@@ -1,4 +1,4 @@
-using Marble: @threaded, fillzero!, eachpoint_blockwise_parallel, check_states
+using Marble: @threaded, fillzero!, eachpoint_blockwise_parallel, check_states, nonzeroindex
 
 crossprod(x::Vec{2}, y::Vec{2}) = x[1]*y[2] - x[2]*y[1]
 crossprod(x::Vec{3}, y::Vec{3}) = x × y
@@ -353,10 +353,11 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
         mp = get_mpvalue(space, p)
         for (j, i) in enumerate(get_nodeindices(space, p))
             N = mp.N[j]
-            gridstate.d[i]  += N*mₚ*d
-            gridstate.vᵣ[i] += N*mₚ*vᵣ
-            gridstate.μ[i]  += N*mₚ*μ
-            gridstate.mc[i] += N*mₚ
+            k = nonzeroindex(gridstate, i)
+            gridstate.d[k]  += N*mₚ*d
+            gridstate.vᵣ[k] += N*mₚ*vᵣ
+            gridstate.μ[k]  += N*mₚ*μ
+            gridstate.mc[k] += N*mₚ
         end
     end
 
@@ -440,7 +441,8 @@ function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, spac
         mp = get_mpvalue(space, p)
         for (j, i) in enumerate(get_nodeindices(space, p))
             N = mp.N[j]
-            acᵢ = gridstate.ac[i]
+            k = nonzeroindex(gridstate, i)
+            acᵢ = gridstate.ac[k]
             fcₚ += -N*mₚ*acᵢ
         end
         pointstate.fc[p] = fcₚ
