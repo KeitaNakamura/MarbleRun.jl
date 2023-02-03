@@ -1,7 +1,7 @@
 # settling disk
 # use <value> for https://doi.org/10.1016/j.ijnonlinmec.2011.10.007
 
-MarbleRun = "1.0"
+MarbleRun = "1.1"
 
 [General]
 module            = @jl FreeRun
