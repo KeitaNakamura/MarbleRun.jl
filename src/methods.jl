@@ -1,3 +1,5 @@
+using Marble: @threaded, fillzero!, eachpoint_blockwise_parallel, check_states, nonzeroindex
+
 crossprod(x::Vec{2}, y::Vec{2}) = x[1]*y[2] - x[2]*y[1]
 crossprod(x::Vec{3}, y::Vec{3}) = x × y
 
@@ -35,19 +37,20 @@ end
 
 function gridstate_type_base(::Val{dim}, ::Type{T}) where {dim, T}
     @NamedTuple begin
-        m   :: T
-        v   :: Vec{dim, T}
-        v_n :: Vec{dim, T}
+        m  :: T
+        v  :: Vec{dim, T}
+        vⁿ :: Vec{dim, T}
     end
 end
 function gridstate_type_contact(::Val{dim}, ::Type{T}) where {dim, T}
     @NamedTuple begin
-        m′          :: T
-        m_contacted :: T
-        vᵣ          :: Vec{dim, T}
-        fc          :: Vec{dim, T}
-        d           :: Vec{dim, T}
-        μ           :: Vec{2, T} # [μ, c]
+        m′ :: T           # effective mass
+        mc :: T           # mass for particle beeing in contact
+        fc :: Vec{dim, T}
+        ac :: Vec{dim, T}
+        vᵣ :: Vec{dim, T}
+        d  :: Vec{dim, T}
+        μ  :: Vec{2, T}   # [μ, c]
     end
 end
 function gridstate_type_vpform(::Val{dim}, ::Type{T}) where {dim, T}
@@ -246,13 +249,9 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
     if isempty(rigidbodies)
         update!(space, pointstate)
     else
-        spatmasks = [falses(size(grid)) for i in 1:Threads.nthreads()]
-        Threads.@threads for rigidbody in rigidbodies
-            mask = spatmasks[Threads.threadid()]
-            broadcast!(in(rigidbody), mask, grid)
-        end
-        exclude = broadcast(|, spatmasks...)
-        update!(space, pointstate; exclude)
+        masks = broadcast(body -> broadcast(!in(body), grid), rigidbodies)
+        filter = broadcast(&, masks...)
+        update!(space, pointstate; filter)
     end
     update_sparsity_pattern!(gridstate, space)
 
@@ -268,18 +267,17 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
     for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
-        mask = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.FrictionWithMaterial, α, ξ)
+        contactindices = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.FrictionWithMaterial, α, ξ)
         if phase.update_motion == true
             # Update rigid bodies
             b = input_rigidbody.body_force
             if input_rigidbody.control
                 apply_force!(rigidbody, b, zero(torquetype(Val(dim))), dt)
             else
-                G2P_contact!(pointstate, gridstate, space, rigidbody, mask)
-                inds = findall(mask)
+                G2P_contact!(pointstate, gridstate, space, rigidbody, contactindices)
                 xc = centroid(geometry(rigidbody))
-                Fᵢ = view(pointstate.fc, inds)
-                xᵢ = view(pointstate.x, inds)
+                Fᵢ = view(pointstate.fc, contactindices)
+                xᵢ = view(pointstate.x, contactindices)
                 Fc = sum(Fᵢ)
                 τc = sum(crossprod(x-xc, F) for (F, x) in zip(Fᵢ, xᵢ); init = zero(torquetype(Val(dim))))
                 Fc += rigidbody.m * Vec(0,-g) + b
@@ -321,20 +319,27 @@ function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpa
 end
 
 function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real) where {dim}
+    check_states(gridstate, pointstate, space)
+
     allequal(x) = all(isequal(first(x)), x)
     unique_only(x) = (@assert(allequal(x)); first(x))
-    mask = @. distance($(Ref(geometry(rigidbody))), pointstate.x, α * unique_only(pointstate.r)) !== nothing
-    !any(mask) && return mask
-    point_to_grid!((gridstate.d, gridstate.vᵣ, gridstate.μ, gridstate.m_contacted), space, mask) do it, p, i
-        @_inline_meta
-        @_propagate_inbounds_meta
-        N = it.N
-        mₚ = pointstate.m[p]
+
+    contactindices = findall(@. distance($(Ref(geometry(rigidbody))), pointstate.x, α * unique_only(pointstate.r)) !== nothing)
+    isempty(contactindices) && return contactindices
+
+    fillzero!(gridstate.d)
+    fillzero!(gridstate.vᵣ)
+    fillzero!(gridstate.μ)
+    fillzero!(gridstate.mc)
+
+    @inbounds for p in contactindices
         xₚ = pointstate.x[p]
+        mₚ = pointstate.m[p]
         vₚ = pointstate.v[p]
-        m = N * mₚ
+
         d₀ = α * unique_only(pointstate.r[p]) # threshold
         coef = frictions[pointstate.matindex[p]]
+        # calculate distance between particles and rigid body
         if length(coef) == 1
             μ = only(coef)
             dₚ = distance(geometry(rigidbody), xₚ, d₀)
@@ -343,16 +348,35 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
             μ = mean(view(coef, I))
         end
         d = d₀*normalize(dₚ) - dₚ
-        vᵣ = vₚ - velocityat(rigidbody, xₚ)
-        m*d, m*vᵣ, m*μ, m
+        vᵣ = vₚ - velocityat(rigidbody, xₚ) # relative velocity
+
+        mp = get_mpvalue(space, p)
+        for (j, i) in enumerate(get_nodeindices(space, p))
+            N = mp.N[j]
+            k = nonzeroindex(gridstate, i)
+            gridstate.d[k]  += N*mₚ*d
+            gridstate.vᵣ[k] += N*mₚ*vᵣ
+            gridstate.μ[k]  += N*mₚ*μ
+            gridstate.mc[k] += N*mₚ
+        end
     end
-    @dot_threads gridstate.m′ = gridstate.m / (gridstate.m/rigidbody.m + 1)
-    @dot_threads gridstate.d /= gridstate.m
-    @dot_threads gridstate.vᵣ /= gridstate.m_contacted
-    @dot_threads gridstate.μ /= gridstate.m_contacted
-    @dot_threads gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(unique_only(gridsteps(space.grid))^(dim-1)))
-    @dot_threads gridstate.v += (gridstate.fc / gridstate.m) * dt
-    mask
+
+    # effective mass and gap function `d`
+    @. gridstate.m′ = gridstate.m / (gridstate.m/rigidbody.m + 1)
+    @. gridstate.d = (gridstate.d / gridstate.m) * !iszero(gridstate.m)
+
+    # relative velocity and coefficients are interpolated using only particles in contact
+    @. gridstate.vᵣ = (gridstate.vᵣ / gridstate.mc) * !iszero(gridstate.mc)
+    @. gridstate.μ = (gridstate.μ / gridstate.mc) * !iszero(gridstate.mc)
+
+    # contacted force and acceleration
+    @. gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(unique_only(gridsteps(space.grid))^(dim-1)))
+    @. gridstate.ac = (gridstate.fc / gridstate.mc) * !iszero(gridstate.mc)
+
+    # update nodal velocity
+    @. gridstate.v += (gridstate.fc / gridstate.m) * dt * !iszero(gridstate.m)
+
+    contactindices
 end
 
 function compute_contact_force(d::Vec{dim, T}, vᵣ::Vec{dim, T}, m::T, dt::T, μ::Vec{2, T}, ξ::T, A::T = one(T)) where {dim, T}
@@ -371,7 +395,7 @@ end
 
 function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
     grid_to_point!(input.General.transfer, pointstate, gridstate, space, dt)
-    @inbounds Threads.@threads for p in eachindex(pointstate)
+    @threaded for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
         # currently we don't have constitutive models using deformation gradient `F`.
@@ -392,9 +416,9 @@ function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpa
     end
 
     if input.General.v_p_formulation
-        @dot_threads pointstate.P = -mean(pointstate.σ)
-        Marble.smooth_pointstate!(pointstate.P, pointstate.V, gridstate, space)
-        @inbounds Threads.@threads for p in eachindex(pointstate)
+        @. pointstate.P = -mean(pointstate.σ)
+        Marble.smooth_pointstate!(pointstate.P, pointstate.x, pointstate.V, gridstate, space)
+        @threaded for p in eachindex(pointstate)
             matindex = pointstate.matindex[p]
             model = models[matindex]
             P = pointstate.P[p]
@@ -407,13 +431,21 @@ function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpa
 end
 
 # compute contact force at points
-function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, rigidbody::GeometricObject, mask::AbstractVector{Bool})
-    Marble.fillzero!(pointstate.fc)
-    grid_to_point!(pointstate.fc, space, mask) do it, I, p
-        @_inline_meta
-        @_propagate_inbounds_meta
-        fc = gridstate.fc[I]
-        -fc * it.N * pointstate.m[p] / gridstate.m_contacted[I]
+function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, rigidbody::GeometricObject, contactindices::Vector{Int})
+    checkbounds(pointstate, contactindices)
+    check_states(gridstate, pointstate, space)
+
+    @inbounds for p in contactindices
+        mₚ = pointstate.m[p]
+        fcₚ = zero(eltype(pointstate.fc))
+        mp = get_mpvalue(space, p)
+        for (j, i) in enumerate(get_nodeindices(space, p))
+            N = mp.N[j]
+            k = nonzeroindex(gridstate, i)
+            acᵢ = gridstate.ac[k]
+            fcₚ += -N*mₚ*acᵢ
+        end
+        pointstate.fc[p] = fcₚ
     end
 end
 
@@ -514,17 +546,17 @@ vorticity(∇v::Mat{3,3}, ::Vec{3}) = Vec(∇v[3,2]-∇v[2,3], ∇v[1,3]-∇v[3,
 function writevtk(vtk, list::Input_Paraview_PointState, pointstate::AbstractVector)
     σ = pointstate.σ
     ϵ = pointstate.ϵ
-    list.displacement      && (vtk["displacement"]      = @dot_lazy pointstate.x - pointstate.x0)
+    list.displacement      && (vtk["displacement"]      = @. pointstate.x - pointstate.x0)
     list.velocity          && (vtk["velocity"]          = pointstate.v)
-    list.mean_stress       && (vtk["mean stress"]       = @dot_lazy mean(σ))
-    list.pressure          && (vtk["pressure"]          = @dot_lazy -mean(σ))
-    list.deviatoric_stress && (vtk["deviatoric stress"] = @dot_lazy sqrt(3/2 * dev(σ) ⊡ dev(σ)))
-    list.volumetric_strain && (vtk["volumetric strain"] = @dot_lazy tr(ϵ))
-    list.deviatoric_stress && (vtk["deviatoric strain"] = @dot_lazy sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ)))
+    list.mean_stress       && (vtk["mean stress"]       = @. mean(σ))
+    list.pressure          && (vtk["pressure"]          = @. -mean(σ))
+    list.deviatoric_stress && (vtk["deviatoric stress"] = @. sqrt(3/2 * dev(σ) ⊡ dev(σ)))
+    list.volumetric_strain && (vtk["volumetric strain"] = @. tr(ϵ))
+    list.deviatoric_stress && (vtk["deviatoric strain"] = @. sqrt(2/3 * dev(ϵ) ⊡ dev(ϵ)))
     list.stress            && (vtk["stress"]            = σ)
     list.strain            && (vtk["strain"]            = ϵ)
-    list.vorticity         && (vtk["vorticity"]         = @dot_lazy vorticity(pointstate.∇v, pointstate.x))
-    list.density           && (vtk["density"]           = @dot_lazy pointstate.m / pointstate.V)
+    list.vorticity         && (vtk["vorticity"]         = @. vorticity(pointstate.∇v, pointstate.x))
+    list.density           && (vtk["density"]           = @. pointstate.m / pointstate.V)
     list.material_index    && (vtk["material index"]    = pointstate.matindex)
     vtk
 end
@@ -540,3 +572,9 @@ function quickview_sparsity_pattern(sppat::AbstractMatrix{Bool}; maxwidth::Int =
     sppat′ = reverse(sppat', dims = 1)
     spy(sppat′; maxwidth, maxheight).graphics
 end
+
+struct TransparentArray{T, N, A <: AbstractArray{T, N}} <: AbstractArray{T, N}
+    parent::A
+end
+Base.size(A::TransparentArray) = size(A.parent)
+Base.getindex(A::TransparentArray, i...) = (@_propagate_inbounds_meta; A.parent[i...])

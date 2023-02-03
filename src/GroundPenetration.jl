@@ -28,7 +28,7 @@ function initialize(input::Input)
     PointState = MarbleRun.pointstate_type(input, Val(2), Float64)
 
     # General
-    coordinate_system = input.General.coordinate_system
+    coordsystem = input.General.coordinate_system
     (xmin, xmax), (ymin, ymax) = input.General.domain
     dx = input.General.grid_space
     g = input.General.gravity
@@ -43,7 +43,7 @@ function initialize(input::Input)
     nptsincell = input.Advanced.npoints_in_cell
     random_pts_gen = input.Advanced.random_points_generation
 
-    grid = Grid(xmin:dx:xmax, ymin:dx:ymax; coordinate_system)
+    grid = Grid(coordsystem, xmin:dx:xmax, ymin:dx:ymax)
     pointstate = generate_pointstate((x,y) -> y < ymin + H, PointState, grid; n=nptsincell, random=random_pts_gen)
     gridstate = generate_gridstate(GridState, grid)
     rigidbody = only(input.RigidBody).model
@@ -51,7 +51,7 @@ function initialize(input::Input)
     bottom = ymin
     for i in length(soillayers):-1:1 # from low to high
         layer = soillayers[i]
-        Threads.@threads for p in 1:length(pointstate)
+        for p in 1:length(pointstate)
             y = pointstate.x[p][2]
             if bottom ≤ y ≤ bottom + layer.thickness
                 pointstate.matindex[p] = i
@@ -61,7 +61,7 @@ function initialize(input::Input)
     end
 
     # initialize variables of points
-    Threads.@threads for p in 1:length(pointstate)
+    for p in 1:length(pointstate)
         layerindex = pointstate.matindex[p]
         σ_y = 0.0
         for layer in soillayers[begin:layerindex-1]
@@ -162,7 +162,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
             MarbleRun.advancestep!(grid, gridstate, pointstate, [rigidbody], space, dt, input, phase)
 
             if input.Output.quickview
-                update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(space.sppat))
+                update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(@. !iszero($TransparentArray(gridstate.m))))
             else
                 update!(logger, t += dt)
             end
