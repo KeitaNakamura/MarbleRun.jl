@@ -1,4 +1,4 @@
-using Marble: @threaded, fillzero!, eachpoint_blockwise_parallel, check_states, nonzeroindex
+using Marble: @threaded, fillzero!, eachpoint_blockwise_parallel, check_states, nonzeroindex, get_grid
 
 crossprod(x::Vec{2}, y::Vec{2}) = x[1]*y[2] - x[2]*y[1]
 crossprod(x::Vec{3}, y::Vec{3}) = x × y
@@ -237,11 +237,12 @@ end
 # advance timestep #
 ####################
 
-function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, pointstate::AbstractVector, rigidbodies, space::MPSpace, dt, input::Input, phase::Input_Phase) where {dim}
+function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbodies::Vector, dt::Real, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
     materials = input.Material
     matmodels = map(x -> x.model, materials)
 
+    grid = get_grid(space)
     if isempty(rigidbodies)
         update!(space, pointstate)
     else
@@ -263,7 +264,7 @@ function advancestep!(grid::Grid{dim}, gridstate::AbstractArray{<: Any, dim}, po
     for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
         α = input.Advanced.contact_threshold_scale
         ξ = input.Advanced.contact_penalty_parameter
-        contactindices = P2G_contact!(gridstate, pointstate, space, dt, rigidbody, input_rigidbody.FrictionWithMaterial, α, ξ)
+        contactindices = P2G_contact!(gridstate, pointstate, space, rigidbody, dt, input_rigidbody.FrictionWithMaterial, α, ξ)
         if phase.update_motion == true
             # Update rigid bodies
             b = input_rigidbody.body_force
@@ -314,7 +315,7 @@ function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpa
     point_to_grid!(input.General.transfer, gridstate, pointstate, space, dt)
 end
 
-function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, dt::Real, rigidbody::GeometricObject, frictions, α::Real, ξ::Real) where {dim}
+function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbody::GeometricObject, dt::Real, frictions, α::Real, ξ::Real) where {dim}
     check_states(gridstate, pointstate, space)
 
     allequal(x) = all(isequal(first(x)), x)
@@ -510,7 +511,7 @@ end
 # contact force/torque for DEM #
 ################################
 
-function compute_contact_force_torque!(contact_force::Vector, contact_torque::Vector, rigidbodies, grid::Grid, dt, input)
+function compute_contact_force_torque!(contact_force::Vector, contact_torque::Vector, rigidbodies::AbstractVector, grid::Grid, dt::Real, input::Input)
     @assert length(contact_force) == length(contact_torque) == length(rigidbodies) == length(input.RigidBody)
     @inbounds for (i, rigidbody1) in enumerate(rigidbodies)
         input.RigidBody[i].control && continue
