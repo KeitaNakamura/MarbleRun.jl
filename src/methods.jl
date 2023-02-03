@@ -327,6 +327,7 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
     fillzero!(gridstate.vᵣ)
     fillzero!(gridstate.μ)
     fillzero!(gridstate.mc)
+    fillzero!(gridstate.m′)
 
     @inbounds for p in contactindices
         xₚ = pointstate.x[p]
@@ -354,11 +355,11 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
             gridstate.vᵣ[k] += N*mₚ*vᵣ
             gridstate.μ[k]  += N*mₚ*μ
             gridstate.mc[k] += N*mₚ
+            gridstate.m′[k] += N*mₚ*(mₚ/rigidbody.m+1)
         end
     end
 
-    # effective mass and gap function `d`
-    @. gridstate.m′ = gridstate.m / (gridstate.m/rigidbody.m + 1)
+    # gap function `d`
     @. gridstate.d = (gridstate.d / gridstate.m) * !iszero(gridstate.m)
 
     # relative velocity and coefficients are interpolated using only particles in contact
