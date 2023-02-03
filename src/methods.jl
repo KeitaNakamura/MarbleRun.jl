@@ -253,36 +253,13 @@ function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, spac
         contactindices_set = P2G_contact!(gridstate, pointstate, space, rigidbodies, dt, input)
     end
 
-    # Compute contact forces between rigid bodies
-    contact_force = fill(zero(Vec{dim}), length(rigidbodies))
-    contact_torque = fill(zero(torquetype(Val(dim))), length(rigidbodies))
-    compute_contact_force_torque!(contact_force, contact_torque, rigidbodies, grid, dt, input)
-
-    # Point-to-grid transfer for contact and update positions of rigid bodies
-    for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
-        contactindices = contactindices_set[i]
-        if phase.update_motion == true
-            # Update rigid bodies
-            b = input_rigidbody.body_force
-            if input_rigidbody.control
-                apply_force!(rigidbody, b, zero(torquetype(Val(dim))), dt)
-            else
-                G2P_contact!(pointstate, gridstate, space, rigidbody, contactindices)
-                xc = centroid(geometry(rigidbody))
-                Fᵢ = view(pointstate.fc, contactindices)
-                xᵢ = view(pointstate.x, contactindices)
-                Fc = sum(Fᵢ)
-                τc = sum(crossprod(x-xc, F) for (F, x) in zip(Fᵢ, xᵢ); init = zero(torquetype(Val(dim))))
-                Fc += rigidbody.m * Vec(0,-g) + b
-                apply_force!(rigidbody, contact_force[i]+Fc, contact_torque[i]+τc, dt)
-            end
-        end
-    end
-
     # Boundary condition for MPM
     apply_boundarycondition!(gridstate, get_grid(space), dt, input)
 
     # Grid-to-point transfer
+    if !isempty(rigidbodies)
+        G2P_contact!(pointstate, gridstate, space, rigidbodies, dt, contactindices_set, input, phase)
+    end
     G2P!(pointstate, gridstate, space, dt, input, phase)
 end
 
@@ -429,8 +406,38 @@ function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpa
     end
 end
 
+function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace{dim}, rigidbodies::Vector{<: GeometricObject}, dt::Real, contactindices_set::Vector{Vector{Int}}, input::Input, phase::Input_Phase) where {dim}
+    g = input.General.gravity
+
+    # Compute contact forces between rigid bodies
+    contact_force = fill(zero(Vec{dim}), length(rigidbodies))
+    contact_torque = fill(zero(torquetype(Val(dim))), length(rigidbodies))
+    compute_contact_force_torque!(contact_force, contact_torque, rigidbodies, get_grid(space), dt, input)
+
+    # Point-to-grid transfer for contact and update positions of rigid bodies
+    for (i, rigidbody, input_rigidbody) in zip(1:length(rigidbodies), rigidbodies, input.RigidBody)
+        contactindices = contactindices_set[i]
+        if phase.update_motion == true
+            # Update rigid bodies
+            b = input_rigidbody.body_force
+            if input_rigidbody.control
+                apply_force!(rigidbody, b, zero(torquetype(Val(dim))), dt)
+            else
+                G2P_contact_eachbody!(pointstate, gridstate, space, rigidbody, contactindices)
+                xc = centroid(geometry(rigidbody))
+                Fᵢ = view(pointstate.fc, contactindices)
+                xᵢ = view(pointstate.x, contactindices)
+                Fc = sum(Fᵢ)
+                τc = sum(crossprod(x-xc, F) for (F, x) in zip(Fᵢ, xᵢ); init=zero(torquetype(Val(dim))))
+                Fc += rigidbody.m * Vec(0,-g) + b
+                apply_force!(rigidbody, contact_force[i]+Fc, contact_torque[i]+τc, dt)
+            end
+        end
+    end
+end
+
 # compute contact force at points
-function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, rigidbody::GeometricObject, contactindices::Vector{Int})
+function G2P_contact_eachbody!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, rigidbody::GeometricObject, contactindices::Vector{Int})
     checkbounds(pointstate, contactindices)
     check_states(gridstate, pointstate, space)
 
