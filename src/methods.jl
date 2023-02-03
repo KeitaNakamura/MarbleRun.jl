@@ -241,9 +241,6 @@ end
 ####################
 
 function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbodies::Vector, dt::Real, input::Input, phase::Input_Phase) where {dim}
-    g = input.General.gravity
-
-    grid = get_grid(space)
     update_mpspace!(space, pointstate, rigidbodies)
     update_sparsity_pattern!(gridstate, space)
 
@@ -283,12 +280,12 @@ function P2G!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpa
     point_to_grid!(input.General.transfer, gridstate, pointstate, space, dt)
 end
 
-function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbodies::Vector, dt::Real, input::Input) where {dim}
+function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbodies::Vector{<: GeometricObject}, dt::Real, input::Input) where {dim}
+    fillzero!(gridstate.m′)
     fillzero!(gridstate.d)
     fillzero!(gridstate.vᵣ)
     fillzero!(gridstate.μ)
     fillzero!(gridstate.mc)
-    fillzero!(gridstate.m′)
 
     contactindices_set = map(zip(1:length(rigidbodies), rigidbodies, input.RigidBody)) do (i, rigidbody, input_rigidbody)
         frictions = input_rigidbody.FrictionWithMaterial
@@ -305,7 +302,8 @@ function P2G_contact!(gridstate::AbstractArray, pointstate::AbstractVector, spac
 
     # contact force and acceleration
     ξ = input.Advanced.contact_penalty_parameter
-    @. gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, $(unique_only(gridsteps(space.grid))^(dim-1)))
+    A = unique_only(gridsteps(get_grid(space)))^(dim-1)
+    @. gridstate.fc = compute_contact_force(gridstate.d, gridstate.vᵣ, gridstate.m′, dt, gridstate.μ, ξ, A)
     @. gridstate.ac = (gridstate.fc / gridstate.mc) * !iszero(gridstate.mc)
 
     # update nodal velocity
@@ -341,12 +339,13 @@ function P2G_contact_eachbody!(gridstate::AbstractArray, pointstate::AbstractVec
         mp = get_mpvalue(space, p)
         for (j, i) in enumerate(get_nodeindices(space, p))
             N = mp.N[j]
+            Nmₚ = N*mₚ
             k = nonzeroindex(gridstate, i)
-            gridstate.d[k]  += N*mₚ*d
-            gridstate.vᵣ[k] += N*mₚ*vᵣ
-            gridstate.μ[k]  += N*mₚ*μ
-            gridstate.mc[k] += N*mₚ
-            gridstate.m′[k] += N*mₚ*(mₚ/rigidbody.m+1)
+            gridstate.m′[k] += Nmₚ*(mₚ/rigidbody.m+1)
+            gridstate.d[k]  += Nmₚ*d
+            gridstate.vᵣ[k] += Nmₚ*vᵣ
+            gridstate.μ[k]  += Nmₚ*μ
+            gridstate.mc[k] += Nmₚ
         end
     end
 
