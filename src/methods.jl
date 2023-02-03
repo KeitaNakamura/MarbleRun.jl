@@ -239,8 +239,6 @@ end
 
 function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, space::MPSpace{dim}, rigidbodies::Vector, dt::Real, input::Input, phase::Input_Phase) where {dim}
     g = input.General.gravity
-    materials = input.Material
-    matmodels = map(x -> x.model, materials)
 
     grid = get_grid(space)
     update_mpspace!(space, pointstate, rigidbodies)
@@ -281,7 +279,7 @@ function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, spac
     apply_boundarycondition!(gridstate, get_grid(space), dt, input)
 
     # Grid-to-point transfer
-    G2P!(pointstate, gridstate, space, matmodels, dt, input, phase)
+    G2P!(pointstate, gridstate, space, dt, input, phase)
 end
 
 function update_mpspace!(space::MPSpace, pointstate::AbstractVector, rigidbodies::Vector)
@@ -380,8 +378,10 @@ end
 # grid-to-point transfer #
 ##########################
 
-function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, models::Vector{<: MaterialModel}, dt::Real, input::Input, phase::Input_Phase)
+function G2P!(pointstate::AbstractVector, gridstate::AbstractArray, space::MPSpace, dt::Real, input::Input, phase::Input_Phase)
     grid_to_point!(input.General.transfer, pointstate, gridstate, space, dt)
+
+    models = map(x->x.model, input.Material)
     @threaded for p in eachindex(pointstate)
         matindex = pointstate.matindex[p]
         model = models[matindex]
