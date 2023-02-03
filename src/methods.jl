@@ -243,13 +243,7 @@ function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, spac
     matmodels = map(x -> x.model, materials)
 
     grid = get_grid(space)
-    if isempty(rigidbodies)
-        update!(space, pointstate)
-    else
-        masks = broadcast(body -> broadcast(!in(body), grid), rigidbodies)
-        filter = broadcast(&, masks...)
-        update!(space, pointstate; filter)
-    end
+    update_mpspace!(space, pointstate, rigidbodies)
     update_sparsity_pattern!(gridstate, space)
 
     # Point-to-grid transfer
@@ -305,6 +299,18 @@ function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, spac
 
     # Grid-to-point transfer
     G2P!(pointstate, gridstate, space, matmodels, dt, input, phase)
+end
+
+function update_mpspace!(space::MPSpace, pointstate::AbstractVector, rigidbodies::Vector)
+    grid = get_grid(space)
+    if isempty(rigidbodies)
+        update!(space, pointstate)
+    else
+        masks = broadcast(body -> broadcast(!in(body), grid), rigidbodies)
+        filter = broadcast(&, masks...)
+        update!(space, pointstate; filter)
+    end
+    space
 end
 
 ##########################
