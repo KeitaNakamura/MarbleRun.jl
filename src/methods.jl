@@ -277,25 +277,8 @@ function advancestep!(gridstate::AbstractArray, pointstate::AbstractVector, spac
         end
     end
 
-    # Boundary conditions
-    # for dirichlet boundary condition, Coulomb frictional contact cannot be used for now.
-    # the given nodal velocity is directly applied.
-    for dirichlet in input.BoundaryCondition.Dirichlet
-        fᵢ′ = 0.0
-        @inbounds for I in dirichlet.node_indices
-            vᵢ = gridstate.v[I]
-            vᵢ′ = dirichlet.velocity
-            fᵢ′ += gridstate.m[I] * (norm(vᵢ-vᵢ′) / dt)
-            gridstate.v[I] = vᵢ′
-        end
-        dirichlet.displacement += norm(dirichlet.velocity) * dt
-        dirichlet.reaction_force = fᵢ′
-    end
-    for (side, cond) in input.BoundaryCondition.sides
-        @inbounds for (I,n) in gridbounds(grid, side)
-            gridstate.v[I] += contacted(cond, gridstate.v[I], n)
-        end
-    end
+    # Boundary condition for MPM
+    apply_boundarycondition!(gridstate, get_grid(space), dt, input)
 
     # Grid-to-point transfer
     G2P!(pointstate, gridstate, space, matmodels, dt, input, phase)
@@ -450,6 +433,31 @@ function G2P_contact!(pointstate::AbstractVector, gridstate::AbstractArray, spac
             fcₚ += -N*mₚ*acᵢ
         end
         pointstate.fc[p] = fcₚ
+    end
+end
+
+#####################
+# boundary condtion #
+#####################
+
+function apply_boundarycondition!(gridstate::AbstractArray, grid::Grid, dt::Real, input::Input)
+    # for dirichlet boundary condition, Coulomb frictional contact cannot be used for now.
+    # the given nodal velocity is directly applied.
+    for dirichlet in input.BoundaryCondition.Dirichlet
+        fᵢ′ = 0.0
+        @inbounds for I in dirichlet.node_indices
+            vᵢ = gridstate.v[I]
+            vᵢ′ = dirichlet.velocity
+            fᵢ′ += gridstate.m[I] * (norm(vᵢ-vᵢ′) / dt)
+            gridstate.v[I] = vᵢ′
+        end
+        dirichlet.displacement += norm(dirichlet.velocity) * dt
+        dirichlet.reaction_force = fᵢ′
+    end
+    for (side, cond) in input.BoundaryCondition.sides
+        @inbounds for (I,n) in gridbounds(grid, side)
+            gridstate.v[I] += contacted(cond, gridstate.v[I], n)
+        end
     end
 end
 
