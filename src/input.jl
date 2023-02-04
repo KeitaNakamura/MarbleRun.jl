@@ -386,10 +386,9 @@ end
 
 function preprocess_input!(input::Input, project::String, default_outdir::String)
     # check version
-    input_version = VersionNumber(input.MarbleRun)
-    if Base.thisminor(input_version) != Base.thisminor(PKG_VERSION)
+    if Base.thisminor(VersionNumber(input.MarbleRun)) != Base.thisminor(PKG_VERSION)
         @warn """
-        Current MarbleRun version $PKG_VERSION is different from version $input_version in input file.
+        Current MarbleRun version $PKG_VERSION does not support input file version $(input.MarbleRun).
         Unexpected behavior may occur.
         """
     end
