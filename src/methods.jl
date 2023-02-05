@@ -118,15 +118,11 @@ end
 # timestep #
 ############
 
+@inline function naninf_to_inf(x::Real)
+    ifelse(isnan(x) || isinf(x), oftype(x, Inf), x)
+end
 function safe_minimum(f, iter)
-    ret = typemax(f(first(iter)))
-    @inbounds @simd for x in iter
-        y = f(x)
-        if !(isnan(y) || isinf(y))
-            ret = min(ret, y)
-        end
-    end
-    ret
+    minimum(naninf_to_inf∘f, iter)
 end
 
 function timestep(model::DruckerPrager, pt, dx) # currently support only LinearElastic

@@ -156,7 +156,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
 
     try
         while !isfinised(logger, t)
-            dt = phase.CFL * MarbleRun.safe_minimum(pointstate) do pt
+            dt = phase.CFL * MarbleRun.safe_minimum(LazyRows(pointstate)) do pt
                 MarbleRun.timestep(matmodels[pt.matindex], pt, dx)
             end
             MarbleRun.advancestep!(grid, gridstate, pointstate, [rigidbody], space, dt, input, phase)
