@@ -124,7 +124,7 @@ function main(input::Input, phase::Input_Phase, t, grid::Grid, gridstate::Abstra
             dt = phase.CFL * MarbleRun.safe_minimum(LazyRows(pointstate)) do pt
                 MarbleRun.timestep(matmodels[pt.matindex], pt, dx)
             end
-            MarbleRun.advancestep!(grid, gridstate, pointstate, rigidbodies, space, dt, input, phase)
+            MarbleRun.advancestep!(gridstate, pointstate, space, rigidbodies, dt, input, phase)
 
             if input.Output.quickview
                 update!(logger, t += dt; print = MarbleRun.quickview_sparsity_pattern(@. !iszero($TransparentArray(gridstate.m))))
